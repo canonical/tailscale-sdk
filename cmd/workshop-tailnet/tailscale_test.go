@@ -63,6 +63,66 @@ func (tailscaleSuite) TestCreateOAuthApp(c *tc.C) {
 	c.Check(app, tc.DeepEquals, createdApp("test-secret"))
 }
 
+// TestDeleteOAuthApp checks deletion requests and absent-app handling.
+func (tailscaleSuite) TestDeleteOAuthApp(c *tc.C) {
+	const token = "test-admin-token"
+	tests := []struct {
+		name    string
+		status  int
+		wantErr string
+	}{
+		{name: "removed", status: http.StatusOK},
+		{name: "already absent", status: http.StatusNotFound},
+		{
+			name:    "unauthorised",
+			status:  http.StatusUnauthorized,
+			wantErr: "invalid test token",
+		},
+	}
+	for _, test := range tests {
+		c.Run(test.name, func(c *testing.T) {
+			server := httptest.NewServer(
+				http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					tc.Check(c, r.Method, tc.Equals, http.MethodDelete)
+					tc.Check(
+						c,
+						r.URL.Path,
+						tc.Equals,
+						oauthAppsPath+"/app-test",
+					)
+					username, password, ok := r.BasicAuth()
+					tc.Check(c, ok, tc.IsTrue)
+					tc.Check(c, username, tc.Equals, token)
+					tc.Check(c, password, tc.Equals, "")
+					tc.Check(
+						c,
+						r.Header.Get("Accept"),
+						tc.Equals,
+						"application/json",
+					)
+					w.WriteHeader(test.status)
+					if test.status == http.StatusUnauthorized {
+						response := map[string]string{
+							"message": "invalid test token",
+						}
+						_ = json.NewEncoder(w).Encode(response)
+					}
+				}),
+			)
+			defer server.Close()
+			client := newTailscaleClient(server.URL, server.Client())
+
+			err := client.DeleteOAuthApp(c.Context(), token, "app-test")
+			if test.wantErr != "" {
+				tc.Assert(c, err, tc.NotNil)
+				tc.Check(c, err.Error(), tc.Contains, test.wantErr)
+				return
+			}
+			tc.Check(c, err, tc.IsNil)
+		})
+	}
+}
+
 // TestExchangeAuthCode checks the authorisation-code token exchange.
 func (tailscaleSuite) TestExchangeAuthCode(c *tc.C) {
 	server := httptest.NewServer(

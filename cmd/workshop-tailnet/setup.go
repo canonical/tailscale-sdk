@@ -21,6 +21,10 @@ type OAuthAppClient interface {
 		redirectURI string,
 	) (oauthApp, error)
 
+	// DeleteOAuthApp removes an OAuth app from the tailnet. An app that is
+	// already absent is treated as removed.
+	DeleteOAuthApp(ctx context.Context, token string, id string) error
+
 	// GetOAuthApp retrieves an app so its configuration can be verified.
 	GetOAuthApp(
 		ctx context.Context,

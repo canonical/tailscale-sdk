@@ -76,6 +76,39 @@ func (c tailscaleClient) CreateOAuthApp(
 	return app, nil
 }
 
+// DeleteOAuthApp removes an OAuth app. An app that is already absent is
+// treated as removed.
+func (c tailscaleClient) DeleteOAuthApp(
+	ctx context.Context,
+	token string,
+	id string,
+) error {
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodDelete,
+		c.baseURL+"/api/v2/tailnet/-/oauth-apps/"+url.PathEscape(id),
+		nil,
+	)
+	if err != nil {
+		return fmt.Errorf("build request: %w", err)
+	}
+	req.SetBasicAuth(token, "")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("send request: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return nil
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return decodeAPIResponse(resp, &struct{}{})
+	}
+	return nil
+}
+
 func decodeAPIResponse(resp *http.Response, output any) error {
 	defer resp.Body.Close()
 	limitedBody := io.LimitReader(resp.Body, 1<<20)

@@ -15,12 +15,13 @@ import (
 
 const (
 	defaultHTTPTimeout = 30 * time.Second
-	usage              = `Usage: workshop-tailnet <command>
+	usage              = `Usage: workshop-tailnet <command> [args]
 
 Commands:
-  setup            Register a Tailscale OAuth app for device provisioning
-  authenticate     Authorise a workshop and save a one-time auth key
-  list-oauth-apps  List the OAuth apps in your tailnet
+  setup                         Register a Tailscale OAuth app
+  authenticate                  Authorise a workshop and save a one-time key
+  list-oauth-apps               List the OAuth apps in your tailnet
+  remove-oauth-app <client-id>  Remove an OAuth app by client ID
 `
 )
 
@@ -83,9 +84,29 @@ func run(
 	provisioner DeviceProvisioner,
 	stdout io.Writer,
 ) error {
+	if len(args) == 0 {
+		return errUsage
+	}
 	if len(args) == 1 && isHelp(args[0]) {
 		fmt.Fprint(stdout, usage)
 		return nil
+	}
+	if args[0] == "remove-oauth-app" {
+		if len(args) != 2 {
+			return errUsage
+		}
+		configPath, err := defaultConfigPath()
+		if err != nil {
+			return err
+		}
+		return removeOAuthApp(
+			ctx,
+			prompt,
+			client,
+			args[1],
+			configPath,
+			stdout,
+		)
 	}
 	if len(args) != 1 {
 		return errUsage

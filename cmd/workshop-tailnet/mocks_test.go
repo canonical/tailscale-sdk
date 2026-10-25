@@ -20,6 +20,9 @@ type fakeOAuthAppClient struct {
 	createApp   oauthApp
 	createCalls int
 	createErr   error
+	deleteCalls int
+	deleteErr   error
+	deleteID    string
 	getApp      oauthApp
 	getCalls    int
 	getErr      error
@@ -58,6 +61,18 @@ func (f *fakeOAuthAppClient) CreateOAuthApp(
 	f.name = name
 	f.redirectURI = redirectURI
 	return f.createApp, f.createErr
+}
+
+// DeleteOAuthApp records the removal and returns the configured response.
+func (f *fakeOAuthAppClient) DeleteOAuthApp(
+	ctx context.Context,
+	token string,
+	id string,
+) error {
+	f.deleteCalls++
+	f.deleteID = id
+	f.token = token
+	return f.deleteErr
 }
 
 // ExchangeAuthCode records the exchange and returns the configured token.
