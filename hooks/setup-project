@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -euo pipefail
+
+install -D --mode=644 \
+  --target-directory "$HOME/.config/systemd/user" \
+  "$SDK/tailscale-auth.service"
+sed -i "s|@SDK_SYSTEMD_SECRET_SOCKET@|${SDK_SYSTEMD_SECRET_SOCKET}|g" \
+  "$HOME/.config/systemd/user/tailscale-auth.service"
+systemctl --user daemon-reload
+systemctl --user enable --now tailscale-auth.service

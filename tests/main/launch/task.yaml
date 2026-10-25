@@ -9,6 +9,8 @@ restore: |
 
 execute: |
   workshop exec -- /var/lib/workshop/sdk/tailscale/bin/tailscale version | MATCH "${EXPECTED_VERSION//./\\.}"
+  workshop exec -- /var/lib/workshop/sdk/tailscale/bin/workshop-tailnet --help | MATCH 'authenticate'
+  workshop exec -- systemctl --user is-enabled tailscale-auth.service | MATCH 'enabled'
   workshop info | MATCH 'status:\s+ready'
 
 debug: |

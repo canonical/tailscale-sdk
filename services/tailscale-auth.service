@@ -1,0 +1,14 @@
+[Unit]
+Description=Tailscale OAuth device provisioning
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+LoadCredential=tailscale.tailscale-oauth-app:@SDK_SYSTEMD_SECRET_SOCKET@
+ExecStart=/var/lib/workshop/sdk/tailscale/bin/workshop-tailnet authenticate
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

@@ -15,6 +15,13 @@ platforms:
     build-on: [amd64]
     build-for: [arm64]
 
+plugs:
+  tailscale-auth:
+    interface: tunnel
+    endpoint: 127.0.0.1:8765
+  tailscale-oauth-app:
+    interface: secret
+
 parts:
   tailscale:
     plugin: nil
@@ -101,3 +108,22 @@ parts:
         "$CRAFT_PART_INSTALL/bin/tailscale"
       install -Dm755 "$PACKAGE_DIR/tailscaled" \
         "$CRAFT_PART_INSTALL/bin/tailscaled"
+
+  workshop-tailnet:
+    plugin: nil
+    source: .
+    source-type: local
+    build-snaps:
+      - go/1.27/stable
+    override-build: |
+      set -euo pipefail
+      export CGO_ENABLED=0
+      export GOFLAGS=-buildvcs=false
+      GOARCH="$CRAFT_ARCH_BUILD_FOR" go build -trimpath \
+        -o "$CRAFT_PART_INSTALL/bin/workshop-tailnet" \
+        ./cmd/workshop-tailnet
+
+  services:
+    plugin: dump
+    source: services
+    source-type: local
