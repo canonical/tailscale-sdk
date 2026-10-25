@@ -70,6 +70,7 @@ func (authSuite) TestAuthenticateRejectsInvalidState(c *tc.C) {
 	err := saveOAuthApp(configPath, app)
 	c.Assert(err, tc.IsNil)
 	authKeyPath := filepath.Join(c.MkDir(), "auth-key")
+	authURLPath := filepath.Join(filepath.Dir(authKeyPath), authURLFilename)
 	provisioner := &fakeDeviceProvisioner{token: "test-one-time-token"}
 	reader, writer := io.Pipe()
 	defer reader.Close()
@@ -92,6 +93,8 @@ func (authSuite) TestAuthenticateRejectsInvalidState(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 	_, err = lines.ReadString('\n')
 	c.Assert(err, tc.IsNil)
+	_, err = os.Stat(authURLPath)
+	c.Assert(err, tc.IsNil)
 	callbackURL := "http://" + address + "/callback?code=test-code&state=wrong"
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Get(callbackURL)
@@ -108,6 +111,8 @@ func (authSuite) TestAuthenticateRejectsInvalidState(c *tc.C) {
 	c.Check(provisioner.code, tc.Equals, "")
 	_, statErr := os.Stat(authKeyPath)
 	c.Check(os.IsNotExist(statErr), tc.IsTrue)
+	_, statErr = os.Stat(authURLPath)
+	c.Check(os.IsNotExist(statErr), tc.IsTrue)
 }
 
 // TestAuthenticateSavesOneTimeToken checks the complete OAuth callback flow.
@@ -118,6 +123,7 @@ func (authSuite) TestAuthenticateSavesOneTimeToken(c *tc.C) {
 	err := saveOAuthApp(configPath, app)
 	c.Assert(err, tc.IsNil)
 	authKeyPath := filepath.Join(c.MkDir(), "auth-key")
+	authURLPath := filepath.Join(filepath.Dir(authKeyPath), authURLFilename)
 	provisioner := &fakeDeviceProvisioner{token: "test-one-time-token"}
 	reader, writer := io.Pipe()
 	defer reader.Close()
@@ -142,6 +148,9 @@ func (authSuite) TestAuthenticateSavesOneTimeToken(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 	authorisationURL, err := url.Parse(strings.TrimSpace(authorisationLine))
 	c.Assert(err, tc.IsNil)
+	notice, err := os.ReadFile(authURLPath)
+	c.Assert(err, tc.IsNil)
+	c.Check(string(notice), tc.Equals, authorisationLine)
 	state := authorisationURL.Query().Get("state")
 	c.Assert(state, tc.Not(tc.Equals), "")
 	c.Check(authorisationURL.Query().Get("client_id"), tc.Equals, "app-test")
@@ -173,4 +182,6 @@ func (authSuite) TestAuthenticateSavesOneTimeToken(c *tc.C) {
 	info, err := os.Stat(authKeyPath)
 	c.Assert(err, tc.IsNil)
 	c.Check(info.Mode().Perm(), tc.Equals, os.FileMode(0o600))
+	_, statErr := os.Stat(authURLPath)
+	c.Check(os.IsNotExist(statErr), tc.IsTrue)
 }

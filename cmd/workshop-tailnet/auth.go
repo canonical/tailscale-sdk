@@ -38,6 +38,7 @@ type DeviceProvisioner interface {
 const (
 	authCredentialFilename = "tailscale.tailscale-oauth-app"
 	authShutdownTimeout    = 5 * time.Second
+	authURLFilename        = "authorization-url"
 	defaultAuthKeyPath     = "/run/user/1000/tailscale/auth-key"
 	oauthAuthorizeURL      = "https://login.tailscale.com/a/oauth_authorize"
 )
@@ -78,6 +79,18 @@ func authenticate(
 	if err != nil {
 		return fmt.Errorf("listen for OAuth callback: %w", err)
 	}
+	authURLPath := filepath.Join(
+		filepath.Dir(authKeyPath),
+		authURLFilename,
+	)
+	err = writePrivateFile(authURLPath, []byte(authorisationURL+"\n"))
+	if err != nil {
+		_ = listener.Close()
+		return fmt.Errorf("save authorisation URL: %w", err)
+	}
+	defer func() {
+		_ = os.Remove(authURLPath)
+	}()
 	callbacks := make(chan authCallbackResult, 1)
 	handler := makeAuthHandler(
 		ctx,

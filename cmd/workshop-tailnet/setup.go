@@ -191,7 +191,7 @@ func writePrivateFile(path string, contents []byte) (returnErr error) {
 		return fmt.Errorf("secure configuration directory: %w", err)
 	}
 
-	temporary, err := os.CreateTemp(directory, ".oauth-app-*.json")
+	temporary, err := os.CreateTemp(directory, ".workshop-tailnet-*")
 	if err != nil {
 		return fmt.Errorf("create temporary credentials file: %w", err)
 	}
