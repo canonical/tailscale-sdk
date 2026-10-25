@@ -1,0 +1,17 @@
+{
+  "artifacts": {
+    "tailscale": {
+      "version": "1.104.2",
+      "sources": {
+        "amd64": {
+          "url": "https://pkgs.tailscale.com/stable/tailscale_1.104.2_amd64.tgz",
+          "sha256": "512f613ed7d04fc7282f7dc5bd76aa105aae28168fbb9357eb749ebcbc29f0ae"
+        },
+        "arm64": {
+          "url": "https://pkgs.tailscale.com/stable/tailscale_1.104.2_arm64.tgz",
+          "sha256": "5776aaa901b5ef1916e66be5bb54b9f481cd399c9c28db123a8cab620efa237b"
+        }
+      }
+    }
+  }
+}

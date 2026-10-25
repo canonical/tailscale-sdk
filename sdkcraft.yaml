@@ -1,0 +1,103 @@
+name: tailscale
+adopt-info: tailscale
+title: Tailscale SDK
+summary: Tailscale networking for Workshop development environments.
+description: |
+  This SDK provides the Tailscale CLI and daemon for user-attributed
+  connectivity between workshops and a tailnet.
+license: BSD-3-Clause
+build-base: ubuntu@26.04
+platforms:
+  amd64:
+    build-on: [amd64]
+    build-for: [amd64]
+  arm64:
+    build-on: [amd64]
+    build-for: [arm64]
+
+parts:
+  tailscale:
+    plugin: nil
+    build-packages:
+      - ca-certificates
+      - curl
+      - jq
+    override-pull: |
+      set -euo pipefail
+      VERSION="$(cat "$CRAFT_PROJECT_DIR/VERSION")"
+      craftctl set version="$VERSION"
+      LOCK="$CRAFT_PROJECT_DIR/sources.lock.json"
+      ARCH="$CRAFT_ARCH_BUILD_FOR"
+
+      LOCK_VERSION="$(jq -er \
+        '.artifacts.tailscale.version // empty' "$LOCK")" || {
+        echo "Invalid Tailscale artifact lock version" >&2
+        exit 1
+      }
+      if [ "$LOCK_VERSION" != "$VERSION" ]; then
+        echo "Tailscale lock version $LOCK_VERSION does not match VERSION $VERSION" >&2
+        exit 1
+      fi
+
+      RECORD_VALID="$(jq -e --arg arch "$ARCH" '
+        .artifacts.tailscale.sources[$arch]
+        | if type == "object" then
+            ((keys | sort) == ["sha256", "url"])
+          else
+            false
+          end
+      ' "$LOCK")" || {
+        echo "Invalid Tailscale lock data for $ARCH" >&2
+        exit 1
+      }
+      if [ "$RECORD_VALID" != "true" ]; then
+        echo "Missing or ambiguous Tailscale lock entry for $ARCH" >&2
+        exit 1
+      fi
+      URL="$(jq -er --arg arch "$ARCH" \
+        '.artifacts.tailscale.sources[$arch].url // empty' "$LOCK")" || {
+        echo "Missing Tailscale source URL for $ARCH" >&2
+        exit 1
+      }
+      case "$URL" in
+        https://*) ;;
+        *)
+          echo "Tailscale source URL for $ARCH must use HTTPS: $URL" >&2
+          exit 1
+          ;;
+      esac
+      SHA256="$(jq -er --arg arch "$ARCH" '
+        .artifacts.tailscale.sources[$arch].sha256
+        | if type == "string" and test("^[0-9a-f]{64}$") then
+            .
+          else
+            empty
+          end
+      ' "$LOCK")" || {
+        echo "Missing or malformed Tailscale SHA-256 for $ARCH" >&2
+        exit 1
+      }
+
+      ARCHIVE="$CRAFT_PART_SRC/tailscale_${VERSION}_${ARCH}.tgz"
+      curl -fL "$URL" -o "$ARCHIVE"
+      ACTUAL="$(sha256sum "$ARCHIVE")"
+      ACTUAL="${ACTUAL%% *}"
+      if [ "$ACTUAL" != "$SHA256" ]; then
+        echo "Tailscale archive checksum mismatch for $ARCH" >&2
+        echo "Source: $URL" >&2
+        echo "Expected: $SHA256" >&2
+        echo "Actual: $ACTUAL" >&2
+        rm -f "$ARCHIVE"
+        exit 1
+      fi
+    override-build: |
+      set -euo pipefail
+      VERSION="$(cat "$CRAFT_PROJECT_DIR/VERSION")"
+      ARCH="$CRAFT_ARCH_BUILD_FOR"
+      ARCHIVE="$CRAFT_PART_SRC/tailscale_${VERSION}_${ARCH}.tgz"
+      PACKAGE_DIR="$CRAFT_PART_SRC/tailscale_${VERSION}_${ARCH}"
+      tar -xzf "$ARCHIVE" -C "$CRAFT_PART_SRC"
+      install -Dm755 "$PACKAGE_DIR/tailscale" \
+        "$CRAFT_PART_INSTALL/bin/tailscale"
+      install -Dm755 "$PACKAGE_DIR/tailscaled" \
+        "$CRAFT_PART_INSTALL/bin/tailscaled"

@@ -1,0 +1,16 @@
+summary: Launch a workshop with the Tailscale SDK and verify its binaries
+
+prepare: |
+  envsubst '${BASE}' <workshop.yaml.in >workshop.yaml
+  workshop launch
+
+restore: |
+  workshop remove || true
+
+execute: |
+  workshop exec -- /var/lib/workshop/sdk/tailscale/bin/tailscale version | MATCH "${EXPECTED_VERSION//./\\.}"
+  workshop info | MATCH 'status:\s+ready'
+
+debug: |
+  workshop exec -- /var/lib/workshop/sdk/tailscale/bin/tailscale version || true
+  workshop info || true
