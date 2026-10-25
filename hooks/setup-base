@@ -1,0 +1,16 @@
+#!/bin/bash
+
+set -euo pipefail
+
+cat >/etc/profile.d/tailscale-auth.sh <<'PROFILE'
+case "$-" in
+  *i*)
+    if [ -r /run/user/1000/tailscale/authorization-url ]; then
+      printf '\nTailscale authentication is required.\n'
+      printf 'Open this URL in your browser:\n  '
+      cat /run/user/1000/tailscale/authorization-url
+      printf '\n'
+    fi
+    ;;
+esac
+PROFILE
