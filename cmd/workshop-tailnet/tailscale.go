@@ -41,7 +41,10 @@ type tailscaleClient struct {
 	httpClient *http.Client
 }
 
-const provisioningScope = "auth_keys:create:once"
+const (
+	provisioningScope = "auth_keys:create:once"
+	tailscaleAPIURL   = "https://api.tailscale.com"
+)
 
 // CreateOAuthApp registers an app with the one-time provisioning scope.
 func (c tailscaleClient) CreateOAuthApp(
@@ -256,12 +259,10 @@ func (c tailscaleClient) ListOAuthApps(
 	return response.OAuthApps, nil
 }
 
-func newTailscaleClient(
-	baseURL string,
-	httpClient *http.Client,
-) tailscaleClient {
+// newTailscaleClient constructs a client for the Tailscale API.
+func newTailscaleClient(httpClient *http.Client) tailscaleClient {
 	return tailscaleClient{
-		baseURL:    baseURL,
+		baseURL:    tailscaleAPIURL,
 		httpClient: httpClient,
 	}
 }

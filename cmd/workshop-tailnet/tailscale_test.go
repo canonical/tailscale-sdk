@@ -51,7 +51,10 @@ func (tailscaleSuite) TestCreateOAuthApp(c *tc.C) {
 		}),
 	)
 	defer server.Close()
-	client := newTailscaleClient(server.URL, server.Client())
+	client := tailscaleClient{
+		baseURL:    server.URL,
+		httpClient: server.Client(),
+	}
 
 	app, err := client.CreateOAuthApp(
 		c.Context(),
@@ -110,7 +113,10 @@ func (tailscaleSuite) TestDeleteOAuthApp(c *tc.C) {
 				}),
 			)
 			defer server.Close()
-			client := newTailscaleClient(server.URL, server.Client())
+			client := tailscaleClient{
+				baseURL:    server.URL,
+				httpClient: server.Client(),
+			}
 
 			err := client.DeleteOAuthApp(c.Context(), token, "app-test")
 			if test.wantErr != "" {
@@ -148,7 +154,10 @@ func (tailscaleSuite) TestExchangeAuthCode(c *tc.C) {
 		}),
 	)
 	defer server.Close()
-	client := newTailscaleClient(server.URL, server.Client())
+	client := tailscaleClient{
+		baseURL:    server.URL,
+		httpClient: server.Client(),
+	}
 
 	token, err := client.ExchangeAuthCode(
 		c.Context(),
@@ -176,7 +185,10 @@ func (tailscaleSuite) TestGetOAuthApp(c *tc.C) {
 		}),
 	)
 	defer server.Close()
-	client := newTailscaleClient(server.URL, server.Client())
+	client := tailscaleClient{
+		baseURL:    server.URL,
+		httpClient: server.Client(),
+	}
 
 	app, err := client.GetOAuthApp(c.Context(), token, "app-test")
 	c.Assert(err, tc.IsNil)
@@ -202,11 +214,23 @@ func (tailscaleSuite) TestListOAuthApps(c *tc.C) {
 		}),
 	)
 	defer server.Close()
-	client := newTailscaleClient(server.URL, server.Client())
+	client := tailscaleClient{
+		baseURL:    server.URL,
+		httpClient: server.Client(),
+	}
 
 	apps, err := client.ListOAuthApps(c.Context(), token)
 	c.Assert(err, tc.IsNil)
 	c.Check(apps, tc.DeepEquals, []oauthApp{verifiedApp()})
+}
+
+// TestNewTailscaleClient checks the API URL and injected HTTP client.
+func (tailscaleSuite) TestNewTailscaleClient(c *tc.C) {
+	httpClient := &http.Client{}
+	client := newTailscaleClient(httpClient)
+
+	c.Check(client.baseURL, tc.Equals, "https://api.tailscale.com")
+	c.Check(client.httpClient, tc.Equals, httpClient)
 }
 
 // TestTailscaleAPIError checks that API diagnostics reach the caller.
@@ -219,7 +243,10 @@ func (tailscaleSuite) TestTailscaleAPIError(c *tc.C) {
 		}),
 	)
 	defer server.Close()
-	client := newTailscaleClient(server.URL, server.Client())
+	client := tailscaleClient{
+		baseURL:    server.URL,
+		httpClient: server.Client(),
+	}
 
 	app, err := client.CreateOAuthApp(
 		c.Context(),

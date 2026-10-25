@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
+
 	"time"
 )
 
@@ -27,19 +27,6 @@ Commands:
 
 var errUsage = errors.New("invalid command")
 
-func defaultConfigPath() (string, error) {
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		return "", fmt.Errorf("locate user configuration directory: %w", err)
-	}
-	path := filepath.Join(
-		configDir,
-		"workshop-tailnet",
-		"oauth-app.json",
-	)
-	return path, nil
-}
-
 func isHelp(argument string) bool {
 	switch argument {
 	case "help", "--help", "-h":
@@ -55,16 +42,14 @@ func main() {
 		os.Interrupt,
 	)
 	defer stop()
+
 	prompt := newInteractivePrompter(
 		bufio.NewReader(os.Stdin),
 		os.Stdout,
 		readSecret,
 	)
 	httpClient := &http.Client{Timeout: defaultHTTPTimeout}
-	client := newTailscaleClient(
-		"https://api.tailscale.com",
-		httpClient,
-	)
+	client := newTailscaleClient(httpClient)
 	err := run(ctx, os.Args[1:], prompt, client, client, os.Stdout)
 	if errors.Is(err, errUsage) {
 		fmt.Fprint(os.Stderr, usage)
