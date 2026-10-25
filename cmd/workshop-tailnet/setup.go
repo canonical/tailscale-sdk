@@ -59,57 +59,13 @@ func promptRedirectURI(prompt Prompter, out io.Writer) (string, error) {
 	}
 }
 
-func saveOAuthApp(path string, app storedOAuthApp) (returnErr error) {
-	directory := filepath.Dir(path)
-	err := os.MkdirAll(directory, 0o700)
-	if err != nil {
-		return fmt.Errorf("create configuration directory: %w", err)
-	}
-	err = os.Chmod(directory, 0o700)
-	if err != nil {
-		return fmt.Errorf("secure configuration directory: %w", err)
-	}
-
+func saveOAuthApp(path string, app storedOAuthApp) error {
 	encoded, err := json.MarshalIndent(app, "", "  ")
 	if err != nil {
 		return fmt.Errorf("encode credentials: %w", err)
 	}
 	encoded = append(encoded, '\n')
-
-	temporary, err := os.CreateTemp(directory, ".oauth-app-*.json")
-	if err != nil {
-		return fmt.Errorf("create temporary credentials file: %w", err)
-	}
-	temporaryPath := temporary.Name()
-	defer func() {
-		if returnErr != nil {
-			_ = os.Remove(temporaryPath)
-		}
-	}()
-	err = temporary.Chmod(0o600)
-	if err != nil {
-		_ = temporary.Close()
-		return fmt.Errorf("secure temporary credentials file: %w", err)
-	}
-	_, err = temporary.Write(encoded)
-	if err != nil {
-		_ = temporary.Close()
-		return fmt.Errorf("write credentials: %w", err)
-	}
-	err = temporary.Sync()
-	if err != nil {
-		_ = temporary.Close()
-		return fmt.Errorf("sync credentials: %w", err)
-	}
-	err = temporary.Close()
-	if err != nil {
-		return fmt.Errorf("close credentials: %w", err)
-	}
-	err = os.Rename(temporaryPath, path)
-	if err != nil {
-		return fmt.Errorf("install credentials file: %w", err)
-	}
-	return nil
+	return writePrivateFile(path, encoded)
 }
 
 func setup(
@@ -221,5 +177,52 @@ func setup(
 	)
 	fmt.Fprintf(out, "Client ID: %s\n", app.ID)
 	fmt.Fprintf(out, "Credentials saved to %s (mode 0600).\n", configPath)
+	return nil
+}
+
+func writePrivateFile(path string, contents []byte) (returnErr error) {
+	directory := filepath.Dir(path)
+	err := os.MkdirAll(directory, 0o700)
+	if err != nil {
+		return fmt.Errorf("create configuration directory: %w", err)
+	}
+	err = os.Chmod(directory, 0o700)
+	if err != nil {
+		return fmt.Errorf("secure configuration directory: %w", err)
+	}
+
+	temporary, err := os.CreateTemp(directory, ".oauth-app-*.json")
+	if err != nil {
+		return fmt.Errorf("create temporary credentials file: %w", err)
+	}
+	temporaryPath := temporary.Name()
+	defer func() {
+		if returnErr != nil {
+			_ = os.Remove(temporaryPath)
+		}
+	}()
+	err = temporary.Chmod(0o600)
+	if err != nil {
+		_ = temporary.Close()
+		return fmt.Errorf("secure temporary credentials file: %w", err)
+	}
+	_, err = temporary.Write(contents)
+	if err != nil {
+		_ = temporary.Close()
+		return fmt.Errorf("write credentials: %w", err)
+	}
+	err = temporary.Sync()
+	if err != nil {
+		_ = temporary.Close()
+		return fmt.Errorf("sync credentials: %w", err)
+	}
+	err = temporary.Close()
+	if err != nil {
+		return fmt.Errorf("close credentials: %w", err)
+	}
+	err = os.Rename(temporaryPath, path)
+	if err != nil {
+		return fmt.Errorf("install credentials file: %w", err)
+	}
 	return nil
 }

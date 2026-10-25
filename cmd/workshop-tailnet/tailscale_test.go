@@ -63,6 +63,44 @@ func (tailscaleSuite) TestCreateOAuthApp(c *tc.C) {
 	c.Check(app, tc.DeepEquals, createdApp("test-secret"))
 }
 
+// TestExchangeAuthCode checks the authorisation-code token exchange.
+func (tailscaleSuite) TestExchangeAuthCode(c *tc.C) {
+	server := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			c.Check(r.Method, tc.Equals, http.MethodPost)
+			c.Check(r.URL.Path, tc.Equals, "/api/v2/oauth/token")
+			_, _, ok := r.BasicAuth()
+			c.Check(ok, tc.IsFalse)
+			contentType := r.Header.Get("Content-Type")
+			c.Check(contentType, tc.Equals, "application/x-www-form-urlencoded")
+			err := r.ParseForm()
+			c.Check(err, tc.IsNil)
+			c.Check(r.Form.Get("grant_type"), tc.Equals, "authorization_code")
+			c.Check(r.Form.Get("client_id"), tc.Equals, "app-test")
+			c.Check(r.Form.Get("client_secret"), tc.Equals, "test-secret")
+			c.Check(r.Form.Get("code"), tc.Equals, "test-code")
+			c.Check(r.Form.Get("redirect_uri"), tc.Equals, defaultRedirectURI)
+			_ = json.NewEncoder(w).Encode(oauthTokenResponse{
+				AccessToken: "test-one-time-token",
+				ExpiresIn:   3600,
+				TokenType:   "Bearer",
+			})
+		}),
+	)
+	defer server.Close()
+	client := newTailscaleClient(server.URL, server.Client())
+
+	token, err := client.ExchangeAuthCode(
+		c.Context(),
+		"app-test",
+		"test-secret",
+		"test-code",
+		defaultRedirectURI,
+	)
+	c.Assert(err, tc.IsNil)
+	c.Check(token, tc.Equals, "test-one-time-token")
+}
+
 // TestGetOAuthApp checks app verification using the admin credential.
 func (tailscaleSuite) TestGetOAuthApp(c *tc.C) {
 	const token = "test-admin-token"

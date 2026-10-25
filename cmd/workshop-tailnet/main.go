@@ -18,7 +18,8 @@ const (
 	usage              = `Usage: workshop-tailnet <command>
 
 Commands:
-  setup    Register a Tailscale OAuth app for Workshop device provisioning
+  setup         Register a Tailscale OAuth app for device provisioning
+  authenticate  Authorise a workshop and save a one-time auth key
 `
 )
 
@@ -62,7 +63,7 @@ func main() {
 		"https://api.tailscale.com",
 		httpClient,
 	)
-	err := run(ctx, os.Args[1:], prompt, client, os.Stdout)
+	err := run(ctx, os.Args[1:], prompt, client, client, os.Stdout)
 	if errors.Is(err, errUsage) {
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(2)
@@ -78,20 +79,37 @@ func run(
 	args []string,
 	prompt Prompter,
 	client OAuthAppClient,
+	provisioner DeviceProvisioner,
 	stdout io.Writer,
 ) error {
 	if len(args) == 1 && isHelp(args[0]) {
 		fmt.Fprint(stdout, usage)
 		return nil
 	}
-	if len(args) != 1 || args[0] != "setup" {
+	if len(args) != 1 {
 		return errUsage
 	}
 
-	configPath, err := defaultConfigPath()
-	if err != nil {
-		return err
+	switch args[0] {
+	case "setup":
+		configPath, err := defaultConfigPath()
+		if err != nil {
+			return err
+		}
+		return setup(ctx, prompt, client, configPath, stdout)
+	case "authenticate":
+		configPath, err := defaultOAuthAppCredentialPath()
+		if err != nil {
+			return err
+		}
+		return authenticate(
+			ctx,
+			provisioner,
+			configPath,
+			defaultAuthKeyPath,
+			stdout,
+		)
+	default:
+		return errUsage
 	}
-
-	return setup(ctx, prompt, client, configPath, stdout)
 }

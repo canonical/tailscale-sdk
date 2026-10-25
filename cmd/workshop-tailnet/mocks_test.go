@@ -5,6 +5,16 @@ import (
 	"fmt"
 )
 
+// fakeDeviceProvisioner records exchanges and returns a configured token.
+type fakeDeviceProvisioner struct {
+	clientID     string
+	clientSecret string
+	code         string
+	err          error
+	redirectURI  string
+	token        string
+}
+
 // fakeOAuthAppClient records setup requests and returns configured responses.
 type fakeOAuthAppClient struct {
 	createApp   oauthApp
@@ -45,6 +55,21 @@ func (f *fakeOAuthAppClient) CreateOAuthApp(
 	f.name = name
 	f.redirectURI = redirectURI
 	return f.createApp, f.createErr
+}
+
+// ExchangeAuthCode records the exchange and returns the configured token.
+func (f *fakeDeviceProvisioner) ExchangeAuthCode(
+	ctx context.Context,
+	clientID string,
+	clientSecret string,
+	code string,
+	redirectURI string,
+) (string, error) {
+	f.clientID = clientID
+	f.clientSecret = clientSecret
+	f.code = code
+	f.redirectURI = redirectURI
+	return f.token, f.err
 }
 
 // GetOAuthApp records the request and returns the configured response.

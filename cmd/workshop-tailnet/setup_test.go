@@ -63,12 +63,12 @@ func (setupSuite) TestPrompterSecretErrorIncludesLabel(c *tc.C) {
 // TestRunHelpAndUnknownCommand checks command dispatch and returned errors.
 func (setupSuite) TestRunHelpAndUnknownCommand(c *tc.C) {
 	var stdout bytes.Buffer
-	err := run(c.Context(), []string{"--help"}, nil, nil, &stdout)
+	err := run(c.Context(), []string{"--help"}, nil, nil, nil, &stdout)
 	c.Assert(err, tc.IsNil)
 	c.Check(stdout.String(), tc.Contains, "setup")
 
 	stdout.Reset()
-	err = run(c.Context(), []string{"unknown"}, nil, nil, &stdout)
+	err = run(c.Context(), []string{"unknown"}, nil, nil, nil, &stdout)
 	c.Check(err, tc.ErrorIs, errUsage)
 }
 

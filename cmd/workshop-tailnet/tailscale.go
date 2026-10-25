@@ -26,6 +26,12 @@ type oauthApp struct {
 	Scopes       []string `json:"scopes"`
 }
 
+type oauthTokenResponse struct {
+	AccessToken string `json:"access_token"`
+	ExpiresIn   int    `json:"expires_in"`
+	TokenType   string `json:"token_type"`
+}
+
 type tailscaleClient struct {
 	baseURL    string
 	httpClient *http.Client
@@ -66,6 +72,30 @@ func (c tailscaleClient) CreateOAuthApp(
 	return app, nil
 }
 
+func decodeAPIResponse(resp *http.Response, output any) error {
+	defer resp.Body.Close()
+	limitedBody := io.LimitReader(resp.Body, 1<<20)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		var apiError struct {
+			Message string `json:"message"`
+		}
+		_ = json.NewDecoder(limitedBody).Decode(&apiError)
+		if apiError.Message != "" {
+			return fmt.Errorf(
+				"Tailscale API returned %s: %s",
+				resp.Status,
+				apiError.Message,
+			)
+		}
+		return fmt.Errorf("Tailscale API returned %s", resp.Status)
+	}
+	err := json.NewDecoder(limitedBody).Decode(output)
+	if err != nil {
+		return fmt.Errorf("decode response: %w", err)
+	}
+	return nil
+}
+
 func (c tailscaleClient) doJSON(
 	ctx context.Context,
 	method string,
@@ -102,28 +132,48 @@ func (c tailscaleClient) doJSON(
 	if err != nil {
 		return fmt.Errorf("send request: %w", err)
 	}
-	defer resp.Body.Close()
+	return decodeAPIResponse(resp, output)
+}
 
-	limitedBody := io.LimitReader(resp.Body, 1<<20)
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		var apiError struct {
-			Message string `json:"message"`
-		}
-		_ = json.NewDecoder(limitedBody).Decode(&apiError)
-		if apiError.Message != "" {
-			return fmt.Errorf(
-				"Tailscale API returned %s: %s",
-				resp.Status,
-				apiError.Message,
-			)
-		}
-		return fmt.Errorf("Tailscale API returned %s", resp.Status)
-	}
-	err = json.NewDecoder(limitedBody).Decode(output)
+// ExchangeAuthCode exchanges an authorisation code for an auth key.
+func (c tailscaleClient) ExchangeAuthCode(
+	ctx context.Context,
+	clientID string,
+	clientSecret string,
+	code string,
+	redirectURI string,
+) (string, error) {
+	form := url.Values{}
+	form.Set("client_id", clientID)
+	form.Set("client_secret", clientSecret)
+	form.Set("code", code)
+	form.Set("grant_type", "authorization_code")
+	form.Set("redirect_uri", redirectURI)
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		c.baseURL+"/api/v2/oauth/token",
+		strings.NewReader(form.Encode()),
+	)
 	if err != nil {
-		return fmt.Errorf("decode response: %w", err)
+		return "", fmt.Errorf("build token request: %w", err)
 	}
-	return nil
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("send token request: %w", err)
+	}
+	var tokenResponse oauthTokenResponse
+	err = decodeAPIResponse(resp, &tokenResponse)
+	if err != nil {
+		return "", fmt.Errorf("exchange authorisation code: %w", err)
+	}
+	if tokenResponse.AccessToken == "" {
+		return "", fmt.Errorf("token response did not include an access token")
+	}
+	return tokenResponse.AccessToken, nil
 }
 
 // GetOAuthApp retrieves an app so its configuration can be verified.
