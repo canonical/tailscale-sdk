@@ -1,0 +1,8 @@
+# sdkcraft build artifacts
+*.sdk
+
+# spread reuse state
+.spread-reuse.yaml
+
+# local CLI builds
+/workshop-tailnet
