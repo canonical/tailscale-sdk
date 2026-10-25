@@ -1,0 +1,21 @@
+[Unit]
+Description=Bring Tailscale up after OAuth authentication
+Requires=tailscaled.service
+After=tailscaled.service network.target
+ConditionPathExists=!/var/lib/tailscale/provisioned
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/var/lib/workshop/sdk/tailscale/bin/tailscale \
+    --socket=/run/tailscale/tailscaled.sock \
+    up \
+    --auth-key=file:/run/user/1000/tailscale/auth-key \
+    --operator=workshop \
+    --timeout=60s
+ExecStartPost=/usr/bin/touch /var/lib/tailscale/provisioned
+ExecStartPost=/usr/bin/systemctl enable tailscaled.service
+ExecStartPost=/usr/bin/rm -f /run/user/1000/tailscale/auth-key
+Restart=on-failure
+RestartSec=2

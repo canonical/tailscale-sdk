@@ -1,0 +1,19 @@
+[Unit]
+Description=Tailscale daemon
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+StateDirectory=tailscale
+RuntimeDirectory=tailscale
+ExecStart=/var/lib/workshop/sdk/tailscale/bin/tailscaled \
+    --state=/var/lib/tailscale/tailscaled.state \
+    --statedir=/var/lib/tailscale \
+    --socket=/run/tailscale/tailscaled.sock \
+    --tun=tailscale0
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

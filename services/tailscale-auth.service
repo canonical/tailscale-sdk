@@ -1,5 +1,6 @@
 [Unit]
 Description=Tailscale OAuth device provisioning
+ConditionPathExists=!/var/lib/tailscale/provisioned
 After=network.target
 StartLimitIntervalSec=0
 

@@ -11,6 +11,15 @@ restore: |
 execute: |
   workshop exec -- /var/lib/workshop/sdk/tailscale/bin/tailscale version | MATCH "${EXPECTED_VERSION//./\\.}"
   workshop exec -- /var/lib/workshop/sdk/tailscale/bin/workshop-tailnet --help | MATCH 'authenticate'
+  workshop exec -- test -f /etc/systemd/system/tailscaled.service
+  workshop exec -- test -f /etc/systemd/system/tailscale-up.path
+  workshop exec -- test -f /etc/systemd/system/tailscale-up.service
+  workshop exec -- systemctl is-enabled tailscale-up.path | MATCH 'enabled'
+  workshop exec -- systemctl is-active tailscale-up.path | MATCH 'active'
+  workshop exec -- sh -c 'test "$(systemctl is-enabled tailscaled.service)" = disabled'
+  workshop exec -- sh -c 'test "$(systemctl is-active tailscaled.service)" = inactive'
+  workshop exec -- systemctl cat tailscale-up.service | MATCH 'auth-key=file:/run/user/1000/tailscale/auth-key'
+  workshop exec -- systemctl cat tailscale-up.service | MATCH 'operator=workshop'
   workshop exec -- systemctl --user is-enabled tailscale-auth.service | MATCH 'enabled'
   workshop exec -- mkdir -p /run/user/1000/tailscale
   workshop exec -- sh -c 'printf "%s\n" "https://example.com/oauth" > /run/user/1000/tailscale/authorization-url'

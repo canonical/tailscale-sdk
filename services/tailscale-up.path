@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch for the Tailscale one-time auth key
+
+[Path]
+PathExists=/run/user/1000/tailscale/auth-key
+Unit=tailscale-up.service
+
+[Install]
+WantedBy=paths.target

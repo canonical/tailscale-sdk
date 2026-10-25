@@ -2,6 +2,18 @@
 
 set -euo pipefail
 
+install -D --mode=644 \
+  "$SDK/tailscaled.service" \
+  /etc/systemd/system/tailscaled.service
+install -D --mode=644 \
+  "$SDK/tailscale-up.path" \
+  /etc/systemd/system/tailscale-up.path
+install -D --mode=644 \
+  "$SDK/tailscale-up.service" \
+  /etc/systemd/system/tailscale-up.service
+systemctl daemon-reload
+systemctl enable --now tailscale-up.path
+
 cat >/etc/profile.d/tailscale-auth.sh <<'PROFILE'
 case "$-" in
   *i*)
