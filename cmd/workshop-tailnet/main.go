@@ -18,8 +18,9 @@ const (
 	usage              = `Usage: workshop-tailnet <command>
 
 Commands:
-  setup         Register a Tailscale OAuth app for device provisioning
-  authenticate  Authorise a workshop and save a one-time auth key
+  setup            Register a Tailscale OAuth app for device provisioning
+  authenticate     Authorise a workshop and save a one-time auth key
+  list-oauth-apps  List the OAuth apps in your tailnet
 `
 )
 
@@ -109,6 +110,8 @@ func run(
 			defaultAuthKeyPath,
 			stdout,
 		)
+	case "list-oauth-apps":
+		return listOAuthApps(ctx, prompt, client, stdout)
 	default:
 		return errUsage
 	}

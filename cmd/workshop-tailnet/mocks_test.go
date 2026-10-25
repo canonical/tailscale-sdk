@@ -23,6 +23,9 @@ type fakeOAuthAppClient struct {
 	getApp      oauthApp
 	getCalls    int
 	getErr      error
+	listApps    []oauthApp
+	listCalls   int
+	listErr     error
 	name        string
 	redirectURI string
 	token       string
@@ -94,6 +97,16 @@ func (f *fakePrompter) Input(
 	value := f.inputs[0]
 	f.inputs = f.inputs[1:]
 	return value, nil
+}
+
+// ListOAuthApps records the request and returns the configured apps.
+func (f *fakeOAuthAppClient) ListOAuthApps(
+	ctx context.Context,
+	token string,
+) ([]oauthApp, error) {
+	f.listCalls++
+	f.token = token
+	return f.listApps, f.listErr
 }
 
 // Secret returns the configured secret value.

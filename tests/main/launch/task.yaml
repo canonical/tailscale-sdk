@@ -11,6 +11,7 @@ restore: |
 execute: |
   workshop exec -- /var/lib/workshop/sdk/tailscale/bin/tailscale version | MATCH "${EXPECTED_VERSION//./\\.}"
   workshop exec -- /var/lib/workshop/sdk/tailscale/bin/workshop-tailnet --help | MATCH 'authenticate'
+  workshop exec -- /var/lib/workshop/sdk/tailscale/bin/workshop-tailnet --help | MATCH 'list-oauth-apps'
   workshop exec -- test -f /etc/systemd/system/tailscaled.service
   workshop exec -- test -f /etc/systemd/system/tailscale-up.path
   workshop exec -- test -f /etc/systemd/system/tailscale-up.service

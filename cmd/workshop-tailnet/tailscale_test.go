@@ -123,6 +123,32 @@ func (tailscaleSuite) TestGetOAuthApp(c *tc.C) {
 	c.Check(app, tc.DeepEquals, verifiedApp())
 }
 
+// TestListOAuthApps checks the list request and decoded response.
+func (tailscaleSuite) TestListOAuthApps(c *tc.C) {
+	const token = "test-admin-token"
+	server := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			c.Check(r.Method, tc.Equals, http.MethodGet)
+			c.Check(r.URL.Path, tc.Equals, oauthAppsPath)
+			username, password, ok := r.BasicAuth()
+			c.Check(ok, tc.IsTrue)
+			c.Check(username, tc.Equals, token)
+			c.Check(password, tc.Equals, "")
+			c.Check(r.Header.Get("Accept"), tc.Equals, "application/json")
+			response := listOAuthAppsResponse{
+				OAuthApps: []oauthApp{verifiedApp()},
+			}
+			_ = json.NewEncoder(w).Encode(response)
+		}),
+	)
+	defer server.Close()
+	client := newTailscaleClient(server.URL, server.Client())
+
+	apps, err := client.ListOAuthApps(c.Context(), token)
+	c.Assert(err, tc.IsNil)
+	c.Check(apps, tc.DeepEquals, []oauthApp{verifiedApp()})
+}
+
 // TestTailscaleAPIError checks that API diagnostics reach the caller.
 func (tailscaleSuite) TestTailscaleAPIError(c *tc.C) {
 	server := httptest.NewServer(

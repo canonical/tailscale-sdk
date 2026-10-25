@@ -27,6 +27,9 @@ type OAuthAppClient interface {
 		token string,
 		id string,
 	) (oauthApp, error)
+
+	// ListOAuthApps lists every OAuth app in the tailnet.
+	ListOAuthApps(ctx context.Context, token string) ([]oauthApp, error)
 }
 
 type storedOAuthApp struct {

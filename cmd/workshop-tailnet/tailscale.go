@@ -18,6 +18,10 @@ type createOAuthAppRequest struct {
 	Scopes       []string `json:"scopes"`
 }
 
+type listOAuthAppsResponse struct {
+	OAuthApps []oauthApp `json:"oauthApps"`
+}
+
 type oauthApp struct {
 	ClientSecret string   `json:"clientSecret,omitempty"`
 	ID           string   `json:"id"`
@@ -197,6 +201,26 @@ func isLoopbackHostname(hostname string) bool {
 	}
 	ip := net.ParseIP(hostname)
 	return ip != nil && ip.IsLoopback()
+}
+
+// ListOAuthApps lists every OAuth app in the tailnet.
+func (c tailscaleClient) ListOAuthApps(
+	ctx context.Context,
+	token string,
+) ([]oauthApp, error) {
+	var response listOAuthAppsResponse
+	err := c.doJSON(
+		ctx,
+		http.MethodGet,
+		"/api/v2/tailnet/-/oauth-apps",
+		token,
+		nil,
+		&response,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list OAuth apps: %w", err)
+	}
+	return response.OAuthApps, nil
 }
 
 func newTailscaleClient(
