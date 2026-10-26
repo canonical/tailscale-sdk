@@ -1,15 +1,17 @@
 [Unit]
 Description=Tailscale OAuth device provisioning
 ConditionPathExists=!/var/lib/tailscale/provisioned
-After=network.target
+After=network.target workshop-secret.socket user-runtime-dir@1000.service
+Requires=workshop-secret.socket user-runtime-dir@1000.service
 StartLimitIntervalSec=0
 
 [Service]
 Type=simple
+User=workshop
 LoadCredential=tailscale.tailscale-oauth-app:@SDK_SYSTEMD_SECRET_SOCKET@
 ExecStart=/var/lib/workshop/sdk/tailscale/bin/workshop-tailnet authenticate
 Restart=on-failure
 RestartSec=2
 
 [Install]
-WantedBy=default.target
+WantedBy=multi-user.target

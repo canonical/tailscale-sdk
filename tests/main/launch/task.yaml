@@ -22,7 +22,11 @@ execute: |
   workshop exec -- sh -c 'test "$(systemctl is-active tailscaled.service)" = inactive'
   workshop exec -- systemctl cat tailscale-up.service | MATCH 'auth-key=file:/run/user/1000/tailscale/auth-key'
   workshop exec -- systemctl cat tailscale-up.service | MATCH 'operator=workshop'
-  workshop exec -- systemctl --user is-enabled tailscale-auth.service | MATCH 'enabled'
+  workshop exec -- test -f /etc/systemd/system/tailscale-auth.service
+  workshop exec -- systemctl is-enabled tailscale-auth.service | MATCH 'enabled'
+  workshop exec -- systemctl show tailscale-auth.service --property=User --value | MATCH '^workshop$'
+  workshop exec -- systemctl cat tailscale-auth.service | MATCH 'LoadCredential=tailscale.tailscale-oauth-app:/var/lib/workshop/run/workshop.socket.secret'
+  workshop exec -- test ! -e /home/workshop/.config/systemd/user/tailscale-auth.service
   workshop exec -- mkdir -p /run/user/1000/tailscale
   workshop exec -- sh -c 'printf "%s\n" "https://example.com/oauth" > /run/user/1000/tailscale/authorization-url'
   workshop exec -- bash -lic true | MATCH 'Tailscale authentication is required'

@@ -29,6 +29,13 @@ workshop name. Secret connections are not automatically granted.
 The existing Tailscale secret plug and runtime credential format do not
 need to change.
 
+Inside the workshop, `tailscale-auth.service` is a system unit running as
+`workshop`. The system manager retrieves the credential from Workshop's
+restricted socket before starting the unprivileged helper. A user unit
+cannot access that socket. SDK refresh removes the previous user unit.
+The authentication service retries until a connected secret is available;
+its URL is printed when you next enter an interactive login shell.
+
 If lookup or storage fails, including when `secret-tool` is missing, the
 helper reports the fallback and saves a private file instead. On Linux,
 this is `$XDG_CONFIG_HOME/workshop-tailnet/oauth-app.json`, or

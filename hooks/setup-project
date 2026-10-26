@@ -2,10 +2,11 @@
 
 set -euo pipefail
 
-install -D --mode=644 \
-  --target-directory "$HOME/.config/systemd/user" \
-  "$SDK/tailscale-auth.service"
-sed -i "s|@SDK_SYSTEMD_SECRET_SOCKET@|${SDK_SYSTEMD_SECRET_SOCKET}|g" \
-  "$HOME/.config/systemd/user/tailscale-auth.service"
-systemctl --user daemon-reload
-systemctl --user enable --now tailscale-auth.service
+# Credential retrieval needs the system manager's access to the secret socket.
+# Remove the old user unit when refreshing an existing workshop.
+legacy_unit="$HOME/.config/systemd/user/tailscale-auth.service"
+if [ -f "$legacy_unit" ]; then
+  systemctl --user disable --now tailscale-auth.service
+  rm -f "$legacy_unit"
+  systemctl --user daemon-reload
+fi

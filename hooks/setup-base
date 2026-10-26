@@ -11,8 +11,13 @@ install -D --mode=644 \
 install -D --mode=644 \
   "$SDK/tailscale-up.service" \
   /etc/systemd/system/tailscale-up.service
+install -D --mode=644 \
+  "$SDK/tailscale-auth.service" \
+  /etc/systemd/system/tailscale-auth.service
+sed -i "s|@SDK_SYSTEMD_SECRET_SOCKET@|${SDK_SYSTEMD_SECRET_SOCKET}|g" \
+  /etc/systemd/system/tailscale-auth.service
 systemctl daemon-reload
-systemctl enable --now tailscale-up.path
+systemctl enable --now tailscale-up.path tailscale-auth.service
 
 cat >/etc/profile.d/tailscale-auth.sh <<'PROFILE'
 case "$-" in
