@@ -100,10 +100,9 @@ func newInteractivePrompter(
 
 func (p interactivePrompter) readLine() (string, error) {
 	line, err := p.reader.ReadString('\n')
-	if err != nil && len(line) == 0 {
-		if err == io.EOF {
-			return "", fmt.Errorf("input ended before setup completed")
-		}
+	if err == io.EOF && len(line) == 0 {
+		return "", fmt.Errorf("input ended before setup completed")
+	} else if err != nil && len(line) == 0 {
 		return "", fmt.Errorf("read input: %w", err)
 	}
 	return strings.TrimSpace(line), nil

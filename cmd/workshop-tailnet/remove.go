@@ -57,20 +57,18 @@ func removeOAuthApp(
 
 func removeStoredOAuthApp(path string, id string) (bool, error) {
 	app, err := loadOAuthApp(path)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return false, nil
-		}
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	} else if err != nil {
 		return false, fmt.Errorf("read local OAuth app credentials: %w", err)
 	}
 	if app.ClientID != id {
 		return false, nil
 	}
 	err = os.Remove(path)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return false, nil
-		}
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	} else if err != nil {
 		return false, fmt.Errorf("remove local OAuth app credentials: %w", err)
 	}
 	return true, nil

@@ -82,10 +82,14 @@ func setup(
 	configPath string,
 	out io.Writer,
 ) error {
-	fmt.Fprintln(out, "Configure a tailnet for Workshop device provisioning.")
-	fmt.Fprintln(out, "You need a Tailscale Owner or Admin API access token.")
-	fmt.Fprintln(out, "The token is used for this setup only and is not saved.")
-	fmt.Fprintln(out)
+	fmt.Fprint(
+		out,
+		`Configure a tailnet for Workshop device provisioning.
+You need a Tailscale Owner or Admin API access token.
+The token is used for this setup only and is not saved.
+
+`,
+	)
 
 	_, err := os.Stat(configPath)
 	if err == nil {
@@ -94,8 +98,7 @@ func setup(
 				"registering another app",
 			configPath,
 		)
-	}
-	if !errors.Is(err, fs.ErrNotExist) {
+	} else if !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("check credentials file: %w", err)
 	}
 
