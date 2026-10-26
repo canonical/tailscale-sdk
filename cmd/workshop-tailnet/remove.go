@@ -26,10 +26,14 @@ func removeOAuthApp(
 		return fmt.Errorf("removal cancelled")
 	}
 
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, "You need a Tailscale Owner or Admin API access token.")
-	fmt.Fprintln(out, "The token is used for this removal only and is not saved.")
-	fmt.Fprintln(out)
+	fmt.Fprint(
+		out,
+		`
+You need a Tailscale Owner or Admin API access token.
+The token is used for this removal only and is not saved.
+
+`,
+	)
 	token, err := prompt.Secret("Tailscale admin API token")
 	if err != nil {
 		return err

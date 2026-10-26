@@ -115,10 +115,19 @@ The token is used for this setup only and is not saved.
 		return err
 	}
 
-	fmt.Fprintf(out, "\nTailscale will create an OAuth app with:\n")
-	fmt.Fprintf(out, "  Name:         %s\n", name)
-	fmt.Fprintf(out, "  Redirect URI: %s\n", redirectURI)
-	fmt.Fprintf(out, "  Scope:        %s\n", provisioningScope)
+	fmt.Fprintf(
+		out,
+		`
+Tailscale will create an OAuth app with:
+  Name:         %s
+  Redirect URI: %s
+  Scope:        %s
+`,
+		name,
+		redirectURI,
+		provisioningScope,
+	)
+
 	confirmed, err := prompt.Confirm("Create this OAuth app?", true)
 	if err != nil {
 		return err
@@ -131,6 +140,7 @@ The token is used for this setup only and is not saved.
 	if err != nil {
 		return err
 	}
+
 	stored := storedOAuthApp{
 		ClientID:     app.ID,
 		ClientSecret: app.ClientSecret,
@@ -142,18 +152,13 @@ The token is used for this setup only and is not saved.
 	if err != nil {
 		fmt.Fprintf(
 			out,
-			"\nThe OAuth app was created, but its credentials could "+
-				"not be saved: %v\n",
+			`
+The OAuth app was created, but its credentials could not be saved: %v
+Tailscale shows this client secret only once. Store it securely now:
+Client ID: %s
+Client secret: %s
+`,
 			err,
-		)
-		fmt.Fprintln(
-			out,
-			"Tailscale shows this client secret only once. Store it "+
-				"securely now:",
-		)
-		fmt.Fprintf(
-			out,
-			"Client ID: %s\nClient secret: %s\n",
 			app.ID,
 			app.ClientSecret,
 		)
@@ -182,11 +187,15 @@ The token is used for this setup only and is not saved.
 
 	fmt.Fprintf(
 		out,
-		"\nOAuth app %q is ready for Workshop device provisioning.\n",
+		`
+OAuth app %q is ready for Workshop device provisioning.
+Client ID: %s
+Credentials saved to %s (mode 0600).
+`,
 		app.Name,
+		app.ID,
+		configPath,
 	)
-	fmt.Fprintf(out, "Client ID: %s\n", app.ID)
-	fmt.Fprintf(out, "Credentials saved to %s (mode 0600).\n", configPath)
 	return nil
 }
 
