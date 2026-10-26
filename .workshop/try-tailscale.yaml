@@ -1,0 +1,17 @@
+name: try-tailscale
+base: ubuntu@24.04
+
+sdks:
+  - name: system
+    plugs:
+      tailscale-auth:
+        interface: tunnel
+        endpoint: 127.0.0.1:8765
+    slots:
+      tailscale-oauth-app:
+        interface: secret
+        collection: default
+        attributes:
+          service: "tailscale.com/workshop/oauth-app"
+          app: "Canonical-Workshop"
+  - name: try-tailscale

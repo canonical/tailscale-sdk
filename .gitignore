@@ -6,3 +6,6 @@
 
 # local CLI builds
 /workshop-tailnet
+
+# Workshop runtime state
+.workshop.lock
