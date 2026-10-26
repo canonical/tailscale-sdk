@@ -16,11 +16,13 @@ platforms:
     build-for: [arm64]
 
 plugs:
+  tailscale-oauth-app:
+    interface: secret
+
+slots:
   tailscale-auth:
     interface: tunnel
     endpoint: 127.0.0.1:8765
-  tailscale-oauth-app:
-    interface: secret
 
 parts:
   tailscale:
