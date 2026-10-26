@@ -29,8 +29,12 @@ execute: |
   workshop exec -- test ! -e /home/workshop/.config/systemd/user/tailscale-auth.service
   workshop exec -- mkdir -p /run/user/1000/tailscale
   workshop exec -- sh -c 'printf "%s\n" "https://example.com/oauth" > /run/user/1000/tailscale/authorization-url'
-  workshop exec -- bash -lic true | MATCH 'Tailscale authentication is required'
-  workshop exec -- bash -lic true | MATCH 'https://example.com/oauth'
+  # Reproduce how "workshop shell" starts a session: a non-interactive login
+  # shell attached to a terminal. "script" provides the terminal.
+  workshop exec -- script -qec 'bash -l -c "exec -- bash -c true"' /dev/null | MATCH 'Tailscale authentication is required'
+  workshop exec -- script -qec 'bash -l -c "exec -- bash -c true"' /dev/null | MATCH 'https://example.com/oauth'
+  # Batch exec runs without a terminal and must stay silent.
+  workshop exec -- bash -lic true | NOMATCH 'Tailscale authentication is required'
   workshop info | MATCH 'status:\s+ready'
 
 debug: |

@@ -34,7 +34,8 @@ Inside the workshop, `tailscale-auth.service` is a system unit running as
 restricted socket before starting the unprivileged helper. A user unit
 cannot access that socket. SDK refresh removes the previous user unit.
 The authentication service retries until a connected secret is available;
-its URL is printed when you next enter an interactive login shell.
+its URL is printed when a login shell attached to a terminal starts,
+including the shell that "workshop shell" opens.
 
 If lookup or storage fails, including when `secret-tool` is missing, the
 helper reports the fallback and saves a private file instead. On Linux,

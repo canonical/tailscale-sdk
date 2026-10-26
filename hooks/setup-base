@@ -20,14 +20,12 @@ systemctl daemon-reload
 systemctl enable --now tailscale-up.path tailscale-auth.service
 
 cat >/etc/profile.d/tailscale-auth.sh <<'PROFILE'
-case "$-" in
-  *i*)
-    if [ -r /run/user/1000/tailscale/authorization-url ]; then
-      printf '\nTailscale authentication is required.\n'
-      printf 'Open this URL in your browser:\n  '
-      cat /run/user/1000/tailscale/authorization-url
-      printf '\n'
-    fi
-    ;;
-esac
+# Workshop starts login shells through "bash -l -c", never interactive,
+# so detect a terminal instead of an interactive shell.
+if [ -t 1 ] && [ -r /run/user/1000/tailscale/authorization-url ]; then
+  printf '\nTailscale authentication is required.\n'
+  printf 'Open this URL in your browser:\n  '
+  cat /run/user/1000/tailscale/authorization-url
+  printf '\n'
+fi
 PROFILE
