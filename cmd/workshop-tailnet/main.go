@@ -43,19 +43,23 @@ func main() {
 	)
 	defer stop()
 
-	prompt := newInteractivePrompter(
+	prompter := newInteractivePrompter(
 		bufio.NewReader(os.Stdin),
 		os.Stdout,
 		readSecret,
 	)
+
 	httpClient := &http.Client{Timeout: defaultHTTPTimeout}
-	client := newTailscaleClient(httpClient)
-	err := run(ctx, os.Args[1:], prompt, client, client, os.Stdout)
+	tailscaleClient := newTailscaleClient(httpClient)
+
+	err := run(
+		ctx, os.Args[1:], prompter, tailscaleClient, tailscaleClient, os.Stdout,
+	)
+
 	if errors.Is(err, errUsage) {
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(2)
-	}
-	if err != nil {
+	} else if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
@@ -72,39 +76,26 @@ func run(
 	if len(args) == 0 {
 		return errUsage
 	}
+
 	if len(args) == 1 && isHelp(args[0]) {
 		fmt.Fprint(stdout, usage)
 		return nil
 	}
-	if args[0] == "remove-oauth-app" {
-		if len(args) != 2 {
+
+	switch args[0] {
+	case "setup":
+		if len(args) != 1 {
 			return errUsage
 		}
 		configPath, err := defaultConfigPath()
 		if err != nil {
 			return err
 		}
-		return removeOAuthApp(
-			ctx,
-			prompt,
-			client,
-			args[1],
-			configPath,
-			stdout,
-		)
-	}
-	if len(args) != 1 {
-		return errUsage
-	}
-
-	switch args[0] {
-	case "setup":
-		configPath, err := defaultConfigPath()
-		if err != nil {
-			return err
-		}
 		return setup(ctx, prompt, client, configPath, stdout)
 	case "authenticate":
+		if len(args) != 1 {
+			return errUsage
+		}
 		configPath, err := defaultOAuthAppCredentialPath()
 		if err != nil {
 			return err
@@ -117,7 +108,12 @@ func run(
 			stdout,
 		)
 	case "list-oauth-apps":
+		if len(args) != 1 {
+			return errUsage
+		}
 		return listOAuthApps(ctx, prompt, client, stdout)
+	case "remove-oauth-app":
+		return runRemoveOAuthApp(ctx, args[1:], prompt, client, stdout)
 	default:
 		return errUsage
 	}

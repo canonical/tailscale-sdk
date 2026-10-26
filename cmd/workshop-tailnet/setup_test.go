@@ -72,6 +72,51 @@ func (setupSuite) TestRunHelpAndUnknownCommand(c *tc.C) {
 	c.Check(err, tc.ErrorIs, errUsage)
 }
 
+// TestRunRejectsInvalidArguments checks command argument counts.
+func (setupSuite) TestRunRejectsInvalidArguments(c *tc.C) {
+	tests := []struct {
+		args []string
+		name string
+	}{
+		{name: "no command"},
+		{
+			args: []string{"setup", "extra"},
+			name: "setup extra argument",
+		},
+		{
+			args: []string{"authenticate", "extra"},
+			name: "authenticate extra argument",
+		},
+		{
+			args: []string{"list-oauth-apps", "extra"},
+			name: "list extra argument",
+		},
+		{
+			args: []string{"remove-oauth-app"},
+			name: "remove missing ID",
+		},
+		{
+			args: []string{"remove-oauth-app", "app-test", "extra"},
+			name: "remove extra argument",
+		},
+	}
+	for _, test := range tests {
+		c.Run(test.name, func(c *testing.T) {
+			var stdout bytes.Buffer
+			err := run(
+				c.Context(),
+				test.args,
+				nil,
+				nil,
+				nil,
+				&stdout,
+			)
+			tc.Check(c, err, tc.ErrorIs, errUsage)
+			tc.Check(c, stdout.String(), tc.Equals, "")
+		})
+	}
+}
+
 // TestSetupCanBeCancelled checks that declining confirmation changes nothing.
 func (setupSuite) TestSetupCanBeCancelled(c *tc.C) {
 	var output bytes.Buffer

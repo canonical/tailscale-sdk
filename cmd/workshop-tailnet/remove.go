@@ -75,3 +75,21 @@ func removeStoredOAuthApp(path string, id string) (bool, error) {
 	}
 	return true, nil
 }
+
+// runRemoveOAuthApp validates arguments and runs the removal command.
+func runRemoveOAuthApp(
+	ctx context.Context,
+	args []string,
+	prompt Prompter,
+	client OAuthAppClient,
+	out io.Writer,
+) error {
+	if len(args) != 1 {
+		return errUsage
+	}
+	configPath, err := defaultConfigPath()
+	if err != nil {
+		return err
+	}
+	return removeOAuthApp(ctx, prompt, client, args[0], configPath, out)
+}
