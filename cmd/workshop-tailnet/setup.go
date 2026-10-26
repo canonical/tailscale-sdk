@@ -2,11 +2,8 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 )
@@ -96,11 +93,10 @@ func promptRedirectURI(prompt Prompter, out io.Writer) (string, error) {
 }
 
 func saveOAuthApp(path string, app storedOAuthApp) error {
-	encoded, err := json.MarshalIndent(app, "", "  ")
+	encoded, err := encodeOAuthApp(app)
 	if err != nil {
-		return fmt.Errorf("encoding credentials: %w", err)
+		return err
 	}
-	encoded = append(encoded, '\n')
 	return writePrivateFile(path, encoded)
 }
 
@@ -108,6 +104,7 @@ func setup(
 	ctx context.Context,
 	prompt Prompter,
 	client OAuthAppClient,
+	store SecretStore,
 	configPath string,
 	out io.Writer,
 ) error {
@@ -120,15 +117,11 @@ The token is used for this setup only and is not saved.
 `,
 	)
 
-	_, err := os.Stat(configPath)
-	if err == nil {
-		return fmt.Errorf(
-			"credentials file %s already exists; move it away before "+
-				"registering another app",
-			configPath,
-		)
-	} else if !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("checking credentials file: %w", err)
+	if store == nil {
+		err := checkOAuthAppFile(configPath)
+		if err != nil {
+			return err
+		}
 	}
 
 	token, err := prompt.Secret("Tailscale admin API token")
@@ -136,6 +129,10 @@ The token is used for this setup only and is not saved.
 		return err
 	}
 	name, err := prompt.Input("OAuth app name", defaultAppName)
+	if err != nil {
+		return err
+	}
+	store, err = prepareOAuthAppStore(ctx, store, name, configPath, out)
 	if err != nil {
 		return err
 	}
@@ -175,14 +172,16 @@ Tailscale will create an OAuth app with:
 		return err
 	}
 
+	// Keep the checked lookup identity and submitted configuration rather
+	// than trusting metadata echoed in the creation response.
 	stored := storedOAuthApp{
 		ClientID:     app.ID,
 		ClientSecret: app.ClientSecret,
-		Name:         app.Name,
-		RedirectURIs: app.RedirectURIs,
-		Scopes:       app.Scopes,
+		Name:         args.Name,
+		RedirectURIs: args.RedirectURIs,
+		Scopes:       args.Scopes,
 	}
-	err = saveOAuthApp(configPath, stored)
+	location, err := storeOAuthApp(ctx, store, configPath, stored, out)
 	if err != nil {
 		fmt.Fprintf(
 			out,
@@ -203,7 +202,7 @@ Client secret: %s
 	if err != nil {
 		return fmt.Errorf(
 			"verifying OAuth app (credentials were saved to %s): %w",
-			configPath,
+			location.description,
 			err,
 		)
 	}
@@ -215,7 +214,7 @@ Client secret: %s
 		return fmt.Errorf(
 			"credentials were saved to %s, but the verified OAuth app "+
 				"configuration did not match the requested configuration",
-			configPath,
+			location.description,
 		)
 	}
 
@@ -224,12 +223,15 @@ Client secret: %s
 		`
 OAuth app %q is ready for Workshop device provisioning.
 Client ID: %s
-Credentials saved to %s (mode 0600).
+Credentials saved to %s.
 `,
-		app.Name,
+		name,
 		app.ID,
-		configPath,
+		location.description,
 	)
+	if location.secretService {
+		printOAuthAppSecretSlot(out, name)
+	}
 	return nil
 }
 

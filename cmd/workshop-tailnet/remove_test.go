@@ -38,6 +38,7 @@ func (removeSuite) TestRemoveCommandRequiresClientID(c *tc.C) {
 		nil,
 		nil,
 		nil,
+		nil,
 		&stdout,
 	)
 	c.Check(err, tc.ErrorIs, errUsage)
@@ -68,6 +69,7 @@ func (removeSuite) TestRemoveCommandDispatchesByID(c *tc.C) {
 			[]string{"remove-oauth-app", "app-test"},
 			prompt,
 			client,
+			nil,
 			nil,
 			&stdout,
 		)

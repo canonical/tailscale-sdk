@@ -37,6 +37,17 @@ type fakePrompter struct {
 	secretValue  string
 }
 
+// fakeSecretStore records keyring operations without accessing a desktop.
+type fakeSecretStore struct {
+	attributes  map[string]string
+	exists      bool
+	lookupCalls int
+	lookupErr   error
+	storeArgs   StoreSecretArgs
+	storeCalls  int
+	storeErr    error
+}
+
 // Confirm returns the configured confirmation answer.
 func (f *fakePrompter) Confirm(
 	label string,
@@ -112,7 +123,27 @@ func (f *fakeOAuthAppClient) ListOAuthApps(
 	return f.listApps, f.listErr
 }
 
+// Lookup records the attributes and reports configured keyring availability.
+func (f *fakeSecretStore) Lookup(
+	ctx context.Context,
+	attributes map[string]string,
+) (bool, error) {
+	f.attributes = attributes
+	f.lookupCalls++
+	return f.exists, f.lookupErr
+}
+
 // Secret returns the configured secret value.
 func (f *fakePrompter) Secret(label string) (string, error) {
 	return f.secretValue, nil
+}
+
+// Store records the secret and returns the configured storage error.
+func (f *fakeSecretStore) Store(
+	ctx context.Context,
+	args StoreSecretArgs,
+) error {
+	f.storeArgs = args
+	f.storeCalls++
+	return f.storeErr
 }

@@ -37,6 +37,7 @@ func (listSuite) TestListCommandWritesApps(c *tc.C) {
 		prompt,
 		client,
 		nil,
+		nil,
 		&stdout,
 	)
 	c.Assert(err, tc.IsNil)
@@ -62,6 +63,7 @@ func (listSuite) TestListCommandWritesNoApps(c *tc.C) {
 		prompt,
 		client,
 		nil,
+		nil,
 		&stdout,
 	)
 	c.Assert(err, tc.IsNil)
@@ -82,6 +84,7 @@ func (listSuite) TestListCommandPropagatesAPIError(c *tc.C) {
 		[]string{"list-oauth-apps"},
 		prompt,
 		client,
+		nil,
 		nil,
 		&stdout,
 	)

@@ -63,12 +63,12 @@ func (setupSuite) TestPrompterSecretErrorIncludesLabel(c *tc.C) {
 // TestRunHelpAndUnknownCommand checks command dispatch and returned errors.
 func (setupSuite) TestRunHelpAndUnknownCommand(c *tc.C) {
 	var stdout bytes.Buffer
-	err := run(c.Context(), []string{"--help"}, nil, nil, nil, &stdout)
+	err := run(c.Context(), []string{"--help"}, nil, nil, nil, nil, &stdout)
 	c.Assert(err, tc.IsNil)
 	c.Check(stdout.String(), tc.Contains, "setup")
 
 	stdout.Reset()
-	err = run(c.Context(), []string{"unknown"}, nil, nil, nil, &stdout)
+	err = run(c.Context(), []string{"unknown"}, nil, nil, nil, nil, &stdout)
 	c.Check(err, tc.ErrorIs, errUsage)
 }
 
@@ -109,6 +109,7 @@ func (setupSuite) TestRunRejectsInvalidArguments(c *tc.C) {
 				nil,
 				nil,
 				nil,
+				nil,
 				&stdout,
 			)
 			tc.Check(c, err, tc.ErrorIs, errUsage)
@@ -128,7 +129,7 @@ func (setupSuite) TestSetupCanBeCancelled(c *tc.C) {
 	client := &fakeOAuthAppClient{}
 	configPath := filepath.Join(c.MkDir(), "oauth-app.json")
 
-	err := setup(c.Context(), prompt, client, configPath, &output)
+	err := setup(c.Context(), prompt, client, nil, configPath, &output)
 	c.Assert(err, tc.NotNil)
 	c.Check(err.Error(), tc.Contains, "cancelled")
 	c.Check(client.createCalls, tc.Equals, 0)
@@ -155,7 +156,7 @@ func (setupSuite) TestSetupCreatesVerifiesAndStoresOAuthApp(c *tc.C) {
 		getApp:    verifiedApp(),
 	}
 
-	err := setup(c.Context(), prompt, client, configPath, &output)
+	err := setup(c.Context(), prompt, client, nil, configPath, &output)
 	c.Assert(err, tc.IsNil, tc.Commentf("output:\n%s", output.String()))
 	c.Assert(client.createCalls, tc.Equals, 1)
 	c.Assert(client.getCalls, tc.Equals, 1)
@@ -207,7 +208,7 @@ func (setupSuite) TestSetupDetectsVerificationMismatch(c *tc.C) {
 	}
 	configPath := filepath.Join(c.MkDir(), "oauth-app.json")
 
-	err := setup(c.Context(), prompt, client, configPath, &output)
+	err := setup(c.Context(), prompt, client, nil, configPath, &output)
 	c.Assert(err, tc.NotNil)
 	c.Check(err.Error(), tc.Contains, "did not match")
 	_, statErr := os.Stat(configPath)
@@ -222,7 +223,7 @@ func (setupSuite) TestSetupRejectsExistingCredentials(c *tc.C) {
 	var output bytes.Buffer
 	prompt := &fakePrompter{}
 
-	err = setup(c.Context(), prompt, nil, configPath, &output)
+	err = setup(c.Context(), prompt, nil, nil, configPath, &output)
 	c.Assert(err, tc.NotNil)
 	c.Check(err.Error(), tc.Contains, "already exists")
 	contents, err := os.ReadFile(configPath)
@@ -248,7 +249,7 @@ func (setupSuite) TestSetupRetriesInvalidRedirectURI(c *tc.C) {
 	}
 	configPath := filepath.Join(c.MkDir(), "oauth-app.json")
 
-	err := setup(c.Context(), prompt, client, configPath, &output)
+	err := setup(c.Context(), prompt, client, nil, configPath, &output)
 	c.Assert(err, tc.IsNil)
 	c.Check(output.String(), tc.Contains, "only allowed for loopback")
 }
@@ -267,7 +268,7 @@ func (setupSuite) TestSetupVerificationFailurePreservesCredentials(c *tc.C) {
 	}
 	configPath := filepath.Join(c.MkDir(), "oauth-app.json")
 
-	err := setup(c.Context(), prompt, client, configPath, &output)
+	err := setup(c.Context(), prompt, client, nil, configPath, &output)
 	c.Assert(err, tc.NotNil)
 	c.Check(err.Error(), tc.Contains, "credentials were saved")
 	_, statErr := os.Stat(configPath)

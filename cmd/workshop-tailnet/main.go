@@ -53,7 +53,13 @@ func main() {
 	tailscaleClient := newTailscaleClient(httpClient)
 
 	err := run(
-		ctx, os.Args[1:], prompter, tailscaleClient, tailscaleClient, os.Stdout,
+		ctx,
+		os.Args[1:],
+		prompter,
+		tailscaleClient,
+		tailscaleClient,
+		newSecretToolStore(),
+		os.Stdout,
 	)
 
 	if errors.Is(err, errUsage) {
@@ -71,6 +77,7 @@ func run(
 	prompt Prompter,
 	client OAuthAppClient,
 	provisioner DeviceProvisioner,
+	store SecretStore,
 	stdout io.Writer,
 ) error {
 	if len(args) == 0 {
@@ -91,7 +98,7 @@ func run(
 		if err != nil {
 			return err
 		}
-		return setup(ctx, prompt, client, configPath, stdout)
+		return setup(ctx, prompt, client, store, configPath, stdout)
 	case "authenticate":
 		if len(args) != 1 {
 			return errUsage
