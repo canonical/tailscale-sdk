@@ -103,7 +103,7 @@ func (p interactivePrompter) readLine() (string, error) {
 	if err == io.EOF && len(line) == 0 {
 		return "", fmt.Errorf("input ended before setup completed")
 	} else if err != nil && len(line) == 0 {
-		return "", fmt.Errorf("read input: %w", err)
+		return "", fmt.Errorf("reading input: %w", err)
 	}
 	return strings.TrimSpace(line), nil
 }
@@ -111,7 +111,7 @@ func (p interactivePrompter) readLine() (string, error) {
 func readSecret() (string, error) {
 	value, err := term.ReadPassword(int(os.Stdin.Fd()))
 	if err != nil {
-		return "", fmt.Errorf("read secret: %w", err)
+		return "", fmt.Errorf("reading secret: %w", err)
 	}
 	return string(value), nil
 }
@@ -123,7 +123,7 @@ func (p interactivePrompter) Secret(label string) (string, error) {
 		value, err := p.secretReader()
 		fmt.Fprintln(p.writer)
 		if err != nil {
-			return "", fmt.Errorf("read %s: %w", label, err)
+			return "", fmt.Errorf("reading %s: %w", label, err)
 		}
 		value = strings.TrimSpace(value)
 		if value != "" {

@@ -47,7 +47,7 @@ func TestSetupSuite(t *testing.T) {
 func (setupSuite) TestPrompterSecretErrorIncludesLabel(c *tc.C) {
 	cause := errors.New("test read failure")
 	readSecret := func() (string, error) {
-		return "", fmt.Errorf("read secret: %w", cause)
+		return "", fmt.Errorf("reading secret: %w", cause)
 	}
 	var output bytes.Buffer
 	prompt := newInteractivePrompter(nil, &output, readSecret)
@@ -57,7 +57,7 @@ func (setupSuite) TestPrompterSecretErrorIncludesLabel(c *tc.C) {
 	c.Check(value, tc.Equals, "")
 	c.Check(err, tc.ErrorIs, cause)
 	c.Check(err.Error(), tc.Contains, "Tailscale admin API token")
-	c.Check(err.Error(), tc.Contains, "read secret")
+	c.Check(err.Error(), tc.Contains, "reading secret")
 }
 
 // TestRunHelpAndUnknownCommand checks command dispatch and returned errors.

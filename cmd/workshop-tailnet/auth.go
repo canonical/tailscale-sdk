@@ -57,7 +57,7 @@ func authenticate(
 	redirectURI := app.RedirectURIs[0]
 	parsedRedirect, err := url.Parse(redirectURI)
 	if err != nil {
-		return fmt.Errorf("parse OAuth redirect URI: %w", err)
+		return fmt.Errorf("parsing OAuth redirect URI: %w", err)
 	}
 	if parsedRedirect.Scheme != "http" ||
 		!isLoopbackHostname(parsedRedirect.Hostname()) {
@@ -77,7 +77,7 @@ func authenticate(
 
 	listener, err := net.Listen("tcp", parsedRedirect.Host)
 	if err != nil {
-		return fmt.Errorf("listen for OAuth callback: %w", err)
+		return fmt.Errorf("listening for OAuth callback: %w", err)
 	}
 	authURLPath := filepath.Join(
 		filepath.Dir(authKeyPath),
@@ -86,7 +86,7 @@ func authenticate(
 	err = writePrivateFile(authURLPath, []byte(authorisationURL+"\n"))
 	if err != nil {
 		_ = listener.Close()
-		return fmt.Errorf("save authorisation URL: %w", err)
+		return fmt.Errorf("saving authorisation URL: %w", err)
 	}
 	defer func() {
 		_ = os.Remove(authURLPath)
@@ -122,7 +122,7 @@ func authenticate(
 		}
 		err = writePrivateFile(authKeyPath, []byte(result.token+"\n"))
 		if err != nil {
-			return fmt.Errorf("save one-time auth key: %w", err)
+			return fmt.Errorf("saving one-time auth key: %w", err)
 		}
 		fmt.Fprintf(
 			out,
@@ -131,13 +131,13 @@ func authenticate(
 		)
 		return nil
 	case err = <-serverErrors:
-		return fmt.Errorf("serve OAuth callback: %w", err)
+		return fmt.Errorf("serving OAuth callback: %w", err)
 	case <-ctx.Done():
 		shutdownErr := shutdownAuthServer(server)
 		if shutdownErr != nil {
 			return shutdownErr
 		}
-		return fmt.Errorf("authenticate: %w", ctx.Err())
+		return fmt.Errorf("authenticating: %w", ctx.Err())
 	}
 }
 
@@ -153,14 +153,14 @@ func loadOAuthApp(path string) (storedOAuthApp, error) {
 	var app storedOAuthApp
 	encoded, err := os.ReadFile(path)
 	if err != nil {
-		return app, fmt.Errorf("read OAuth app credential: %w", err)
+		return app, fmt.Errorf("reading OAuth app credential: %w", err)
 	}
 	if len(bytes.TrimSpace(encoded)) == 0 {
 		return app, fmt.Errorf("OAuth app credential is empty")
 	}
 	err = json.Unmarshal(encoded, &app)
 	if err != nil {
-		return app, fmt.Errorf("decode OAuth app credential: %w", err)
+		return app, fmt.Errorf("decoding OAuth app credential: %w", err)
 	}
 	if app.ClientID == "" || app.ClientSecret == "" {
 		return app, fmt.Errorf(
@@ -174,7 +174,7 @@ func loadOAuthApp(path string) (storedOAuthApp, error) {
 	}
 	err = validateRedirectURI(app.RedirectURIs[0])
 	if err != nil {
-		return app, fmt.Errorf("invalid OAuth redirect URI: %w", err)
+		return app, fmt.Errorf("validating OAuth redirect URI: %w", err)
 	}
 	if !sameStrings(app.Scopes, []string{provisioningScope}) {
 		return app, fmt.Errorf(
@@ -236,7 +236,10 @@ func makeAuthHandler(
 			app.RedirectURIs[0],
 		)
 		if err != nil {
-			result.err = fmt.Errorf("exchange authorisation code: %w", err)
+			result.err = fmt.Errorf(
+				"exchanging authorisation code: %w",
+				err,
+			)
 			http.Error(w, "Token exchange failed.", http.StatusBadGateway)
 			sendAuthResult(results, result)
 			return
@@ -255,7 +258,10 @@ func makeAuthorisationURL(
 ) (string, error) {
 	authorisationURL, err := url.Parse(oauthAuthorizeURL)
 	if err != nil {
-		return "", fmt.Errorf("parse Tailscale authorisation URL: %w", err)
+		return "", fmt.Errorf(
+			"parsing Tailscale authorisation URL: %w",
+			err,
+		)
 	}
 	query := authorisationURL.Query()
 	query.Set("client_id", app.ClientID)
@@ -271,7 +277,7 @@ func newOAuthState() (string, error) {
 	value := make([]byte, 32)
 	_, err := rand.Read(value)
 	if err != nil {
-		return "", fmt.Errorf("generate OAuth state: %w", err)
+		return "", fmt.Errorf("generating OAuth state: %w", err)
 	}
 	return hex.EncodeToString(value), nil
 }
@@ -294,7 +300,7 @@ func shutdownAuthServer(server *http.Server) error {
 	defer cancel()
 	err := server.Shutdown(ctx)
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return fmt.Errorf("stop OAuth callback server: %w", err)
+		return fmt.Errorf("stopping OAuth callback server: %w", err)
 	}
 	return nil
 }

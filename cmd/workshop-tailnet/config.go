@@ -10,7 +10,10 @@ import (
 func defaultConfigPath() (string, error) {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
-		return "", fmt.Errorf("locate user configuration directory: %w", err)
+		return "", fmt.Errorf(
+			"locating user configuration directory: %w",
+			err,
+		)
 	}
 	path := filepath.Join(
 		configDir,

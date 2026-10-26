@@ -69,7 +69,7 @@ func promptRedirectURI(prompt Prompter, out io.Writer) (string, error) {
 func saveOAuthApp(path string, app storedOAuthApp) error {
 	encoded, err := json.MarshalIndent(app, "", "  ")
 	if err != nil {
-		return fmt.Errorf("encode credentials: %w", err)
+		return fmt.Errorf("encoding credentials: %w", err)
 	}
 	encoded = append(encoded, '\n')
 	return writePrivateFile(path, encoded)
@@ -99,7 +99,7 @@ The token is used for this setup only and is not saved.
 			configPath,
 		)
 	} else if !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("check credentials file: %w", err)
+		return fmt.Errorf("checking credentials file: %w", err)
 	}
 
 	token, err := prompt.Secret("Tailscale admin API token")
@@ -157,13 +157,13 @@ The token is used for this setup only and is not saved.
 			app.ID,
 			app.ClientSecret,
 		)
-		return fmt.Errorf("save OAuth app credentials: %w", err)
+		return fmt.Errorf("saving OAuth app credentials: %w", err)
 	}
 
 	verified, err := client.GetOAuthApp(ctx, token, app.ID)
 	if err != nil {
 		return fmt.Errorf(
-			"credentials were saved to %s, but %w",
+			"verifying OAuth app (credentials were saved to %s): %w",
 			configPath,
 			err,
 		)
@@ -194,16 +194,19 @@ func writePrivateFile(path string, contents []byte) (returnErr error) {
 	directory := filepath.Dir(path)
 	err := os.MkdirAll(directory, 0o700)
 	if err != nil {
-		return fmt.Errorf("create configuration directory: %w", err)
+		return fmt.Errorf("creating configuration directory: %w", err)
 	}
 	err = os.Chmod(directory, 0o700)
 	if err != nil {
-		return fmt.Errorf("secure configuration directory: %w", err)
+		return fmt.Errorf("securing configuration directory: %w", err)
 	}
 
 	temporary, err := os.CreateTemp(directory, ".workshop-tailnet-*")
 	if err != nil {
-		return fmt.Errorf("create temporary credentials file: %w", err)
+		return fmt.Errorf(
+			"creating temporary credentials file: %w",
+			err,
+		)
 	}
 	temporaryPath := temporary.Name()
 	defer func() {
@@ -214,25 +217,28 @@ func writePrivateFile(path string, contents []byte) (returnErr error) {
 	err = temporary.Chmod(0o600)
 	if err != nil {
 		_ = temporary.Close()
-		return fmt.Errorf("secure temporary credentials file: %w", err)
+		return fmt.Errorf(
+			"securing temporary credentials file: %w",
+			err,
+		)
 	}
 	_, err = temporary.Write(contents)
 	if err != nil {
 		_ = temporary.Close()
-		return fmt.Errorf("write credentials: %w", err)
+		return fmt.Errorf("writing credentials: %w", err)
 	}
 	err = temporary.Sync()
 	if err != nil {
 		_ = temporary.Close()
-		return fmt.Errorf("sync credentials: %w", err)
+		return fmt.Errorf("syncing credentials: %w", err)
 	}
 	err = temporary.Close()
 	if err != nil {
-		return fmt.Errorf("close credentials: %w", err)
+		return fmt.Errorf("closing credentials: %w", err)
 	}
 	err = os.Rename(temporaryPath, path)
 	if err != nil {
-		return fmt.Errorf("install credentials file: %w", err)
+		return fmt.Errorf("installing credentials file: %w", err)
 	}
 	return nil
 }

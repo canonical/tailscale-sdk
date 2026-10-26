@@ -68,11 +68,11 @@ func (c tailscaleClient) CreateOAuthApp(
 		&app,
 	)
 	if err != nil {
-		return oauthApp{}, fmt.Errorf("create OAuth app: %w", err)
+		return oauthApp{}, fmt.Errorf("creating OAuth app: %w", err)
 	}
 	if app.ID == "" || app.ClientSecret == "" {
 		return oauthApp{}, fmt.Errorf(
-			"create OAuth app: response did not include both a client " +
+			"creating OAuth app: response did not include both a client " +
 				"ID and client secret",
 		)
 	}
@@ -93,14 +93,14 @@ func (c tailscaleClient) DeleteOAuthApp(
 		nil,
 	)
 	if err != nil {
-		return fmt.Errorf("build request: %w", err)
+		return fmt.Errorf("building request: %w", err)
 	}
 	req.SetBasicAuth(token, "")
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("send request: %w", err)
+		return fmt.Errorf("sending request: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
@@ -131,7 +131,7 @@ func decodeAPIResponse(resp *http.Response, output any) error {
 	}
 	err := json.NewDecoder(limitedBody).Decode(output)
 	if err != nil {
-		return fmt.Errorf("decode response: %w", err)
+		return fmt.Errorf("decoding response: %w", err)
 	}
 	return nil
 }
@@ -148,7 +148,7 @@ func (c tailscaleClient) doJSON(
 	if input != nil {
 		encoded, err := json.Marshal(input)
 		if err != nil {
-			return fmt.Errorf("encode request: %w", err)
+			return fmt.Errorf("encoding request: %w", err)
 		}
 		body = bytes.NewReader(encoded)
 	}
@@ -160,7 +160,7 @@ func (c tailscaleClient) doJSON(
 		body,
 	)
 	if err != nil {
-		return fmt.Errorf("build request: %w", err)
+		return fmt.Errorf("building request: %w", err)
 	}
 	req.SetBasicAuth(token, "")
 	req.Header.Set("Accept", "application/json")
@@ -170,7 +170,7 @@ func (c tailscaleClient) doJSON(
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("send request: %w", err)
+		return fmt.Errorf("sending request: %w", err)
 	}
 	return decodeAPIResponse(resp, output)
 }
@@ -196,19 +196,19 @@ func (c tailscaleClient) ExchangeAuthCode(
 		strings.NewReader(form.Encode()),
 	)
 	if err != nil {
-		return "", fmt.Errorf("build token request: %w", err)
+		return "", fmt.Errorf("building token request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("send token request: %w", err)
+		return "", fmt.Errorf("sending token request: %w", err)
 	}
 	var tokenResponse oauthTokenResponse
 	err = decodeAPIResponse(resp, &tokenResponse)
 	if err != nil {
-		return "", fmt.Errorf("exchange authorisation code: %w", err)
+		return "", fmt.Errorf("exchanging authorisation code: %w", err)
 	}
 	if tokenResponse.AccessToken == "" {
 		return "", fmt.Errorf("token response did not include an access token")
@@ -226,7 +226,7 @@ func (c tailscaleClient) GetOAuthApp(
 	path := "/api/v2/tailnet/-/oauth-apps/" + url.PathEscape(id)
 	err := c.doJSON(ctx, http.MethodGet, path, token, nil, &app)
 	if err != nil {
-		return oauthApp{}, fmt.Errorf("verify OAuth app: %w", err)
+		return oauthApp{}, fmt.Errorf("verifying OAuth app: %w", err)
 	}
 	return app, nil
 }
@@ -254,7 +254,7 @@ func (c tailscaleClient) ListOAuthApps(
 		&response,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("list OAuth apps: %w", err)
+		return nil, fmt.Errorf("listing OAuth apps: %w", err)
 	}
 	return response.OAuthApps, nil
 }
