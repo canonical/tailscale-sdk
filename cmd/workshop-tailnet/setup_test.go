@@ -18,8 +18,8 @@ type setupSuite struct{}
 
 const oauthAppsPath = "/api/v2/tailnet/-/oauth-apps"
 
-func createdApp(secret string) oauthApp {
-	return oauthApp{
+func createdApp(secret string) OAuthApp {
+	return OAuthApp{
 		ClientSecret: secret,
 		ID:           "app-test",
 		Name:         defaultAppName,
@@ -28,8 +28,8 @@ func createdApp(secret string) oauthApp {
 	}
 }
 
-func verifiedApp() oauthApp {
-	return oauthApp{
+func verifiedApp() OAuthApp {
+	return OAuthApp{
 		ClientSecret: "",
 		ID:           "app-test",
 		Name:         defaultAppName,
@@ -160,8 +160,11 @@ func (setupSuite) TestSetupCreatesVerifiesAndStoresOAuthApp(c *tc.C) {
 	c.Assert(client.createCalls, tc.Equals, 1)
 	c.Assert(client.getCalls, tc.Equals, 1)
 	c.Check(client.token, tc.Equals, token)
-	c.Check(client.name, tc.Equals, defaultAppName)
-	c.Check(client.redirectURI, tc.Equals, defaultRedirectURI)
+	c.Check(client.createArgs, tc.DeepEquals, CreateOAuthAppArgs{
+		Name:         defaultAppName,
+		RedirectURIs: []string{defaultRedirectURI},
+		Scopes:       []string{provisioningScope},
+	})
 
 	encoded, err := os.ReadFile(configPath)
 	c.Assert(err, tc.IsNil)

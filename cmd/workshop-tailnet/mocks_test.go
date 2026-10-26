@@ -7,30 +7,26 @@ import (
 
 // fakeDeviceProvisioner records exchanges and returns a configured token.
 type fakeDeviceProvisioner struct {
-	clientID     string
-	clientSecret string
-	code         string
-	err          error
-	redirectURI  string
-	token        string
+	args  ExchangeAuthCodeArgs
+	err   error
+	token string
 }
 
 // fakeOAuthAppClient records setup requests and returns configured responses.
 type fakeOAuthAppClient struct {
-	createApp   oauthApp
+	createApp   OAuthApp
+	createArgs  CreateOAuthAppArgs
 	createCalls int
 	createErr   error
 	deleteCalls int
 	deleteErr   error
 	deleteID    string
-	getApp      oauthApp
+	getApp      OAuthApp
 	getCalls    int
 	getErr      error
-	listApps    []oauthApp
+	listApps    []OAuthApp
 	listCalls   int
 	listErr     error
-	name        string
-	redirectURI string
 	token       string
 }
 
@@ -49,17 +45,15 @@ func (f *fakePrompter) Confirm(
 	return f.confirmation, nil
 }
 
-// CreateOAuthApp records the request and returns the configured response.
+// CreateOAuthApp records the arguments and returns the configured response.
 func (f *fakeOAuthAppClient) CreateOAuthApp(
 	ctx context.Context,
 	token string,
-	name string,
-	redirectURI string,
-) (oauthApp, error) {
+	args CreateOAuthAppArgs,
+) (OAuthApp, error) {
 	f.createCalls++
 	f.token = token
-	f.name = name
-	f.redirectURI = redirectURI
+	f.createArgs = args
 	return f.createApp, f.createErr
 }
 
@@ -78,15 +72,9 @@ func (f *fakeOAuthAppClient) DeleteOAuthApp(
 // ExchangeAuthCode records the exchange and returns the configured token.
 func (f *fakeDeviceProvisioner) ExchangeAuthCode(
 	ctx context.Context,
-	clientID string,
-	clientSecret string,
-	code string,
-	redirectURI string,
+	args ExchangeAuthCodeArgs,
 ) (string, error) {
-	f.clientID = clientID
-	f.clientSecret = clientSecret
-	f.code = code
-	f.redirectURI = redirectURI
+	f.args = args
 	return f.token, f.err
 }
 
@@ -95,7 +83,7 @@ func (f *fakeOAuthAppClient) GetOAuthApp(
 	ctx context.Context,
 	token string,
 	id string,
-) (oauthApp, error) {
+) (OAuthApp, error) {
 	f.getCalls++
 	f.token = token
 	return f.getApp, f.getErr
@@ -118,7 +106,7 @@ func (f *fakePrompter) Input(
 func (f *fakeOAuthAppClient) ListOAuthApps(
 	ctx context.Context,
 	token string,
-) ([]oauthApp, error) {
+) ([]OAuthApp, error) {
 	f.listCalls++
 	f.token = token
 	return f.listApps, f.listErr

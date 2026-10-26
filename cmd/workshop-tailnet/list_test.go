@@ -21,7 +21,7 @@ func (listSuite) TestListCommandWritesApps(c *tc.C) {
 	var stdout bytes.Buffer
 	prompt := &fakePrompter{secretValue: "test-admin-token"}
 	client := &fakeOAuthAppClient{
-		listApps: []oauthApp{
+		listApps: []OAuthApp{
 			{
 				ID:           "app-test",
 				Name:         defaultAppName,

@@ -28,11 +28,23 @@ type DeviceProvisioner interface {
 	// ExchangeAuthCode exchanges an authorisation code for an auth key.
 	ExchangeAuthCode(
 		ctx context.Context,
-		clientID string,
-		clientSecret string,
-		code string,
-		redirectURI string,
+		args ExchangeAuthCodeArgs,
 	) (string, error)
+}
+
+// ExchangeAuthCodeArgs describes an OAuth authorisation-code exchange.
+type ExchangeAuthCodeArgs struct {
+	// ClientID identifies the OAuth app.
+	ClientID string
+
+	// ClientSecret authenticates the OAuth app.
+	ClientSecret string
+
+	// Code is the authorisation code returned by the OAuth callback.
+	Code string
+
+	// RedirectURI is the callback URI used to request the code.
+	RedirectURI string
 }
 
 const (
@@ -230,10 +242,12 @@ func makeAuthHandler(
 
 		token, err := provisioner.ExchangeAuthCode(
 			ctx,
-			app.ClientID,
-			app.ClientSecret,
-			code,
-			app.RedirectURIs[0],
+			ExchangeAuthCodeArgs{
+				ClientID:     app.ClientID,
+				ClientSecret: app.ClientSecret,
+				Code:         code,
+				RedirectURI:  app.RedirectURIs[0],
+			},
 		)
 		if err != nil {
 			result.err = fmt.Errorf(

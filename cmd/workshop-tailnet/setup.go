@@ -11,15 +11,44 @@ import (
 	"path/filepath"
 )
 
+// CreateOAuthAppArgs describes the OAuth app to register.
+type CreateOAuthAppArgs struct {
+	// Name is the app's display name.
+	Name string
+
+	// RedirectURIs lists the permitted OAuth callback URIs.
+	RedirectURIs []string
+
+	// Scopes lists the permissions requested by the app.
+	Scopes []string
+}
+
+// OAuthApp describes a registered OAuth app.
+type OAuthApp struct {
+	// ClientSecret is returned when the app is created and omitted later.
+	ClientSecret string
+
+	// ID identifies the app.
+	ID string
+
+	// Name is the app's display name.
+	Name string
+
+	// RedirectURIs lists the permitted OAuth callback URIs.
+	RedirectURIs []string
+
+	// Scopes lists the permissions granted to the app.
+	Scopes []string
+}
+
 // OAuthAppClient manages Tailscale OAuth apps for device provisioning.
 type OAuthAppClient interface {
-	// CreateOAuthApp registers an app with the one-time provisioning scope.
+	// CreateOAuthApp registers an app with the supplied configuration.
 	CreateOAuthApp(
 		ctx context.Context,
 		token string,
-		name string,
-		redirectURI string,
-	) (oauthApp, error)
+		args CreateOAuthAppArgs,
+	) (OAuthApp, error)
 
 	// DeleteOAuthApp removes an OAuth app from the tailnet. An app that is
 	// already absent is treated as removed.
@@ -30,10 +59,10 @@ type OAuthAppClient interface {
 		ctx context.Context,
 		token string,
 		id string,
-	) (oauthApp, error)
+	) (OAuthApp, error)
 
 	// ListOAuthApps lists every OAuth app in the tailnet.
-	ListOAuthApps(ctx context.Context, token string) ([]oauthApp, error)
+	ListOAuthApps(ctx context.Context, token string) ([]OAuthApp, error)
 }
 
 type storedOAuthApp struct {
@@ -136,7 +165,12 @@ Tailscale will create an OAuth app with:
 		return fmt.Errorf("setup cancelled")
 	}
 
-	app, err := client.CreateOAuthApp(ctx, token, name, redirectURI)
+	args := CreateOAuthAppArgs{
+		Name:         name,
+		RedirectURIs: []string{redirectURI},
+		Scopes:       []string{provisioningScope},
+	}
+	app, err := client.CreateOAuthApp(ctx, token, args)
 	if err != nil {
 		return err
 	}

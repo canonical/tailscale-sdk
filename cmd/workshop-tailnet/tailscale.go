@@ -12,6 +12,7 @@ import (
 	"strings"
 )
 
+// createOAuthAppRequest is the JSON payload for app registration.
 type createOAuthAppRequest struct {
 	Name         string   `json:"name"`
 	RedirectURIs []string `json:"redirectUris"`
@@ -46,17 +47,16 @@ const (
 	tailscaleAPIURL   = "https://api.tailscale.com"
 )
 
-// CreateOAuthApp registers an app with the one-time provisioning scope.
+// CreateOAuthApp registers an app with the supplied configuration.
 func (c tailscaleClient) CreateOAuthApp(
 	ctx context.Context,
 	token string,
-	name string,
-	redirectURI string,
-) (oauthApp, error) {
-	requestBody := createOAuthAppRequest{
-		Name:         name,
-		RedirectURIs: []string{redirectURI},
-		Scopes:       []string{provisioningScope},
+	args CreateOAuthAppArgs,
+) (OAuthApp, error) {
+	request := createOAuthAppRequest{
+		Name:         args.Name,
+		RedirectURIs: args.RedirectURIs,
+		Scopes:       args.Scopes,
 	}
 	var app oauthApp
 	err := c.doJSON(
@@ -64,19 +64,19 @@ func (c tailscaleClient) CreateOAuthApp(
 		http.MethodPost,
 		"/api/v2/tailnet/-/oauth-apps",
 		token,
-		requestBody,
+		request,
 		&app,
 	)
 	if err != nil {
-		return oauthApp{}, fmt.Errorf("creating OAuth app: %w", err)
+		return OAuthApp{}, fmt.Errorf("creating OAuth app: %w", err)
 	}
 	if app.ID == "" || app.ClientSecret == "" {
-		return oauthApp{}, fmt.Errorf(
+		return OAuthApp{}, fmt.Errorf(
 			"creating OAuth app: response did not include both a client " +
 				"ID and client secret",
 		)
 	}
-	return app, nil
+	return app.toOAuthApp(), nil
 }
 
 // DeleteOAuthApp removes an OAuth app. An app that is already absent is
@@ -178,17 +178,14 @@ func (c tailscaleClient) doJSON(
 // ExchangeAuthCode exchanges an authorisation code for an auth key.
 func (c tailscaleClient) ExchangeAuthCode(
 	ctx context.Context,
-	clientID string,
-	clientSecret string,
-	code string,
-	redirectURI string,
+	args ExchangeAuthCodeArgs,
 ) (string, error) {
 	form := url.Values{}
-	form.Set("client_id", clientID)
-	form.Set("client_secret", clientSecret)
-	form.Set("code", code)
+	form.Set("client_id", args.ClientID)
+	form.Set("client_secret", args.ClientSecret)
+	form.Set("code", args.Code)
 	form.Set("grant_type", "authorization_code")
-	form.Set("redirect_uri", redirectURI)
+	form.Set("redirect_uri", args.RedirectURI)
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
@@ -221,14 +218,14 @@ func (c tailscaleClient) GetOAuthApp(
 	ctx context.Context,
 	token string,
 	id string,
-) (oauthApp, error) {
+) (OAuthApp, error) {
 	var app oauthApp
 	path := "/api/v2/tailnet/-/oauth-apps/" + url.PathEscape(id)
 	err := c.doJSON(ctx, http.MethodGet, path, token, nil, &app)
 	if err != nil {
-		return oauthApp{}, fmt.Errorf("verifying OAuth app: %w", err)
+		return OAuthApp{}, fmt.Errorf("verifying OAuth app: %w", err)
 	}
-	return app, nil
+	return app.toOAuthApp(), nil
 }
 
 func isLoopbackHostname(hostname string) bool {
@@ -243,7 +240,7 @@ func isLoopbackHostname(hostname string) bool {
 func (c tailscaleClient) ListOAuthApps(
 	ctx context.Context,
 	token string,
-) ([]oauthApp, error) {
+) ([]OAuthApp, error) {
 	var response listOAuthAppsResponse
 	err := c.doJSON(
 		ctx,
@@ -256,7 +253,14 @@ func (c tailscaleClient) ListOAuthApps(
 	if err != nil {
 		return nil, fmt.Errorf("listing OAuth apps: %w", err)
 	}
-	return response.OAuthApps, nil
+	if response.OAuthApps == nil {
+		return nil, nil
+	}
+	apps := make([]OAuthApp, 0, len(response.OAuthApps))
+	for _, app := range response.OAuthApps {
+		apps = append(apps, app.toOAuthApp())
+	}
+	return apps, nil
 }
 
 // newTailscaleClient constructs a client for the Tailscale API.
@@ -277,6 +281,17 @@ func sameStrings(left, right []string) bool {
 		}
 	}
 	return true
+}
+
+// toOAuthApp maps the wire response to the interface result.
+func (app oauthApp) toOAuthApp() OAuthApp {
+	return OAuthApp{
+		ClientSecret: app.ClientSecret,
+		ID:           app.ID,
+		Name:         app.Name,
+		RedirectURIs: app.RedirectURIs,
+		Scopes:       app.Scopes,
+	}
 }
 
 func validateRedirectURI(value string) error {

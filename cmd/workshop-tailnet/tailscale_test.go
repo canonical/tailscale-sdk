@@ -17,9 +17,17 @@ func TestTailscaleSuite(t *testing.T) {
 	tc.Run(t, &tailscaleSuite{})
 }
 
-// TestCreateOAuthApp checks the create request and decoded response.
+// TestCreateOAuthApp checks supplied app fields and the decoded response.
 func (tailscaleSuite) TestCreateOAuthApp(c *tc.C) {
 	const token = "test-admin-token"
+	args := CreateOAuthAppArgs{
+		Name: "custom-workshop",
+		RedirectURIs: []string{
+			"http://127.0.0.1:8765/callback",
+			"https://example.com/callback",
+		},
+		Scopes: []string{provisioningScope, "devices:read"},
+	}
 	server := httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			c.Check(r.Method, tc.Equals, http.MethodPost)
@@ -35,19 +43,19 @@ func (tailscaleSuite) TestCreateOAuthApp(c *tc.C) {
 			var request createOAuthAppRequest
 			err := json.NewDecoder(r.Body).Decode(&request)
 			c.Check(err, tc.IsNil)
-			c.Check(request.Name, tc.Equals, defaultAppName)
-			c.Check(
-				request.RedirectURIs,
-				tc.DeepEquals,
-				[]string{defaultRedirectURI},
-			)
-			c.Check(
-				request.Scopes,
-				tc.DeepEquals,
-				[]string{provisioningScope},
-			)
+			c.Check(request, tc.DeepEquals, createOAuthAppRequest{
+				Name:         args.Name,
+				RedirectURIs: args.RedirectURIs,
+				Scopes:       args.Scopes,
+			})
 			w.WriteHeader(http.StatusCreated)
-			_ = json.NewEncoder(w).Encode(createdApp("test-secret"))
+			_ = json.NewEncoder(w).Encode(oauthApp{
+				ClientSecret: "test-secret",
+				ID:           "app-test",
+				Name:         defaultAppName,
+				RedirectURIs: []string{defaultRedirectURI},
+				Scopes:       []string{provisioningScope},
+			})
 		}),
 	)
 	defer server.Close()
@@ -59,8 +67,7 @@ func (tailscaleSuite) TestCreateOAuthApp(c *tc.C) {
 	app, err := client.CreateOAuthApp(
 		c.Context(),
 		token,
-		defaultAppName,
-		defaultRedirectURI,
+		args,
 	)
 	c.Assert(err, tc.IsNil)
 	c.Check(app, tc.DeepEquals, createdApp("test-secret"))
@@ -161,10 +168,12 @@ func (tailscaleSuite) TestExchangeAuthCode(c *tc.C) {
 
 	token, err := client.ExchangeAuthCode(
 		c.Context(),
-		"app-test",
-		"test-secret",
-		"test-code",
-		defaultRedirectURI,
+		ExchangeAuthCodeArgs{
+			ClientID:     "app-test",
+			ClientSecret: "test-secret",
+			Code:         "test-code",
+			RedirectURI:  defaultRedirectURI,
+		},
 	)
 	c.Assert(err, tc.IsNil)
 	c.Check(token, tc.Equals, "test-one-time-token")
@@ -181,7 +190,12 @@ func (tailscaleSuite) TestGetOAuthApp(c *tc.C) {
 			c.Check(ok, tc.IsTrue)
 			c.Check(username, tc.Equals, token)
 			c.Check(password, tc.Equals, "")
-			_ = json.NewEncoder(w).Encode(verifiedApp())
+			_ = json.NewEncoder(w).Encode(oauthApp{
+				ID:           "app-test",
+				Name:         defaultAppName,
+				RedirectURIs: []string{defaultRedirectURI},
+				Scopes:       []string{provisioningScope},
+			})
 		}),
 	)
 	defer server.Close()
@@ -208,7 +222,14 @@ func (tailscaleSuite) TestListOAuthApps(c *tc.C) {
 			c.Check(password, tc.Equals, "")
 			c.Check(r.Header.Get("Accept"), tc.Equals, "application/json")
 			response := listOAuthAppsResponse{
-				OAuthApps: []oauthApp{verifiedApp()},
+				OAuthApps: []oauthApp{
+					{
+						ID:           "app-test",
+						Name:         defaultAppName,
+						RedirectURIs: []string{defaultRedirectURI},
+						Scopes:       []string{provisioningScope},
+					},
+				},
 			}
 			_ = json.NewEncoder(w).Encode(response)
 		}),
@@ -221,7 +242,7 @@ func (tailscaleSuite) TestListOAuthApps(c *tc.C) {
 
 	apps, err := client.ListOAuthApps(c.Context(), token)
 	c.Assert(err, tc.IsNil)
-	c.Check(apps, tc.DeepEquals, []oauthApp{verifiedApp()})
+	c.Check(apps, tc.DeepEquals, []OAuthApp{verifiedApp()})
 }
 
 // TestNewTailscaleClient checks the API URL and injected HTTP client.
@@ -251,10 +272,13 @@ func (tailscaleSuite) TestTailscaleAPIError(c *tc.C) {
 	app, err := client.CreateOAuthApp(
 		c.Context(),
 		"test-token",
-		defaultAppName,
-		defaultRedirectURI,
+		CreateOAuthAppArgs{
+			Name:         defaultAppName,
+			RedirectURIs: []string{defaultRedirectURI},
+			Scopes:       []string{provisioningScope},
+		},
 	)
 	c.Assert(err, tc.NotNil)
 	c.Check(err.Error(), tc.Contains, "invalid test token")
-	c.Check(app, tc.DeepEquals, oauthApp{})
+	c.Check(app, tc.DeepEquals, OAuthApp{})
 }

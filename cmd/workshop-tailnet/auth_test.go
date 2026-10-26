@@ -108,7 +108,7 @@ func (authSuite) TestAuthenticateRejectsInvalidState(c *tc.C) {
 	err = <-result
 	c.Assert(err, tc.NotNil)
 	c.Check(err.Error(), tc.Contains, "state did not match")
-	c.Check(provisioner.code, tc.Equals, "")
+	c.Check(provisioner.args, tc.DeepEquals, ExchangeAuthCodeArgs{})
 	_, statErr := os.Stat(authKeyPath)
 	c.Check(os.IsNotExist(statErr), tc.IsTrue)
 	_, statErr = os.Stat(authURLPath)
@@ -172,10 +172,12 @@ func (authSuite) TestAuthenticateSavesOneTimeToken(c *tc.C) {
 
 	err = <-result
 	c.Assert(err, tc.IsNil)
-	c.Check(provisioner.clientID, tc.Equals, "app-test")
-	c.Check(provisioner.clientSecret, tc.Equals, "test-client-secret")
-	c.Check(provisioner.code, tc.Equals, "test-code")
-	c.Check(provisioner.redirectURI, tc.Equals, app.RedirectURIs[0])
+	c.Check(provisioner.args, tc.DeepEquals, ExchangeAuthCodeArgs{
+		ClientID:     "app-test",
+		ClientSecret: "test-client-secret",
+		Code:         "test-code",
+		RedirectURI:  app.RedirectURIs[0],
+	})
 	encoded, err := os.ReadFile(authKeyPath)
 	c.Assert(err, tc.IsNil)
 	c.Check(string(encoded), tc.Equals, "test-one-time-token\n")
