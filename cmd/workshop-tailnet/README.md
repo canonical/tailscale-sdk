@@ -62,7 +62,10 @@ restricted socket before starting the unprivileged helper. A user unit
 cannot access that socket. SDK refresh removes the previous user unit.
 The authentication service retries until a connected secret is available;
 its URL is printed when a login shell attached to a terminal starts,
-including the shell that "workshop shell" opens.
+including the shell that "workshop shell" opens. The `check-health` hook
+reports the SDK healthy while the flow waits for the credential: the
+secret plug can only be connected once the workshop is up, so waiting
+states must not fail the launch.
 
 A workshop refresh rebuilds the container, which discards the Tailscale
 node state in `/var/lib/tailscale`. The `save-state` and `restore-state`

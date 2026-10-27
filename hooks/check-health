@@ -9,9 +9,17 @@ set -euo pipefail
 # tailscaled's Wants= pulling in the authentication flow. Nothing is
 # decided here; the daemon's own login state is reported as found.
 #
-# The workshop requires every hook-bearing SDK to report its health.
-# Waiting for the user's consent is the designed state of the
-# authentication flow, not a health problem; the authorisation URL is
+# The workshop requires every hook-bearing SDK to report its health,
+# and a launch fails when a hook reports an error. Waiting for the
+# user is the designed state of the authentication flow, not a health
+# problem: the browser consent while the authentication service runs,
+# and the missing credential before the secret plug is connected are
+# both waiting states, and the plug can only be connected once the
+# workshop is up. Reporting them as errors would block the launch
+# exactly when the user must act on the host, and "waiting" only
+# postpones that: ten consecutive waiting results also become an
+# error. Only states the SDK cannot recover from by itself, or that
+# need no user action, are errors; the authorisation URL is
 # advertised to login shells instead.
 systemctl start tailscaled.service || true
 if ! systemctl is-active --quiet tailscaled.service; then
@@ -28,10 +36,38 @@ case "$login" in
   0)
     if systemctl is-active --quiet tailscale-auth.service; then
       workshopctl set-health okay
-    else
-      workshopctl set-health --code=auth-service-failed error \
-        "the authentication service failed to start"
+      exit 0
     fi
+    # The authentication service is not running. Probe the credential
+    # to tell the user-actionable waiting states apart from a service
+    # that cannot start: get-secret exits 1 when no keyring item
+    # matches, 2 when the keyring is locked, 3 when the plug is not
+    # connected, and 4 when several items match. All four wait for
+    # the user on the host, so the machinery is healthy.
+    set +e
+    workshopctl get-secret tailnet.tailscale-oauth-app >/dev/null 2>&1
+    secret=$?
+    set -e
+    case "$secret" in
+      0)
+        # The credential is available and the unit restarts on its
+        # own, so tolerate the restart gap with a waiting result; ten
+        # consecutive results promote a service that cannot start to
+        # an error.
+        workshopctl set-health waiting \
+          "starting the authentication service"
+        ;;
+      1|2|3|4)
+        workshopctl set-health okay
+        ;;
+      *)
+        # An unclassified retrieval failure may be transient; the
+        # waiting budget lets it recover and promotes a persistent
+        # one to an error.
+        workshopctl set-health waiting \
+          "retrieving the OAuth app credential"
+        ;;
+    esac
     ;;
   *)
     workshopctl set-health --code=login-state-unknown error \
