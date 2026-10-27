@@ -19,7 +19,7 @@ sed -i "s|@SDK_SYSTEMD_SECRET_SOCKET@|${SDK_SYSTEMD_SECRET_SOCKET}|g" \
 systemctl daemon-reload
 systemctl enable --now tailscale-up.path tailscale-auth.service
 
-cat >/etc/profile.d/tailscale-auth.sh <<'PROFILE'
+cat >/etc/profile.d/tailscale-auth.sh <<EOF
 # Workshop starts login shells through "bash -l -c", never interactive,
 # so detect a terminal instead of an interactive shell.
 if [ -t 1 ] && [ -r /run/user/1000/tailscale/authorization-url ]; then
@@ -28,4 +28,5 @@ if [ -t 1 ] && [ -r /run/user/1000/tailscale/authorization-url ]; then
   cat /run/user/1000/tailscale/authorization-url
   printf '\n'
 fi
-PROFILE
+export PATH="${SDK}/bin:\$PATH"
+EOF

@@ -10,6 +10,7 @@ restore: |
 
 execute: |
   workshop exec -- /var/lib/workshop/sdk/tailscale/bin/tailscale version | MATCH "${EXPECTED_VERSION//./\\.}"
+  workshop exec -- bash -lc 'command -v tailscale' | MATCH '^/var/lib/workshop/sdk/tailscale/bin/tailscale$'
   workshop exec -- /var/lib/workshop/sdk/tailscale/bin/workshop-tailnet --help | MATCH 'authenticate'
   workshop exec -- /var/lib/workshop/sdk/tailscale/bin/workshop-tailnet --help | MATCH 'list-oauth-apps'
   workshop exec -- /var/lib/workshop/sdk/tailscale/bin/workshop-tailnet --help | MATCH 'remove-oauth-app'
