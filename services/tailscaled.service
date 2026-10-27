@@ -1,6 +1,10 @@
 [Unit]
 Description=Tailscale daemon
 After=network.target
+# Pull the authentication service in whenever the daemon starts: its
+# ExecCondition asks the daemon whether login is needed, so the flow
+# runs exactly when it should, including after container restarts.
+Wants=tailscale-auth.service
 StartLimitIntervalSec=0
 
 [Service]

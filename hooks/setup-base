@@ -17,13 +17,13 @@ install -D --mode=644 \
 sed -i "s|@SDK_SYSTEMD_SECRET_SOCKET@|${SDK_SYSTEMD_SECRET_SOCKET}|g" \
   /etc/systemd/system/tailscale-auth.service
 systemctl daemon-reload
-# Start the authentication service only from check-health, which runs
-# after restore-state has merged any saved node state: starting it
-# here would begin authorisation requests for a node that may already
-# be provisioned. Enabling it keeps container restarts resuming the
-# flow; the unit's own condition on the provisioned marker guards
-# the provisioned case at boot.
-systemctl enable tailscale-auth.service
+# Never start the daemon here: on a refresh, restore-state must merge
+# the saved node state before the daemon first runs, or it would come
+# up logged out and pull the authentication flow in early. Enabling it
+# keeps container restarts resuming from the daemon's own state, and
+# its Wants= starts the authentication flow exactly when the daemon
+# reports it is not logged in, so the flow needs no enablement.
+systemctl enable tailscaled.service
 systemctl enable --now tailscale-up.path
 
 cat >/etc/profile.d/tailscale-auth.sh <<EOF

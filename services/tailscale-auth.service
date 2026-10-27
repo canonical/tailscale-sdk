@@ -1,17 +1,21 @@
 [Unit]
 Description=Tailscale OAuth device provisioning
-ConditionPathExists=!/var/lib/tailscale/provisioned
-After=network.target workshop-secret.socket user-runtime-dir@1000.service
-Requires=workshop-secret.socket user-runtime-dir@1000.service
+# tailscaled pulls this unit in through Wants=; order it after the
+# daemon and require it, so the flow never runs without its state
+# authority and always stops alongside it.
+After=network.target tailscaled.service workshop-secret.socket user-runtime-dir@1000.service
+Requires=tailscaled.service workshop-secret.socket user-runtime-dir@1000.service
 StartLimitIntervalSec=0
 
 [Service]
 Type=simple
 User=workshop
 LoadCredential=tailscale.tailscale-oauth-app:@SDK_SYSTEMD_SECRET_SOCKET@
+# The daemon's own login state, not a marker file, decides whether the
+# flow runs. The + prefix runs the check as root: the service user has
+# no access to the daemon socket before an operator is configured.
+# Any exit from 1 through 254 cleanly skips this unit.
+ExecCondition=+/var/lib/workshop/sdk/tailscale/tailscale-needs-login
 ExecStart=/var/lib/workshop/sdk/tailscale/bin/workshop-tailnet authenticate
 Restart=on-failure
 RestartSec=2
-
-[Install]
-WantedBy=multi-user.target

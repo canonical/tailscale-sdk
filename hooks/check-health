@@ -2,31 +2,39 @@
 
 set -euo pipefail
 
-# This hook runs after restore-state, so any provisioned node state
-# saved before a refresh is already restored by now. Starting the
-# authentication service only when the provisioned marker is absent
-# means a refreshed provisioned workshop never repeats the OAuth flow
-# or makes authorisation requests it does not need. Boot-time starts
-# of the enabled service are guarded the same way by the unit's own
-# condition on the marker.
+# This hook runs after restore-state, so any node state saved before
+# a refresh is already restored and the daemon has been started from
+# it. Starting it is idempotent: on a refresh it is already running,
+# and on a fresh launch this start is what first brings it up, with
+# tailscaled's Wants= pulling in the authentication flow. Nothing is
+# decided here; the daemon's own login state is reported as found.
 #
 # The workshop requires every hook-bearing SDK to report its health.
 # Waiting for the user's consent is the designed state of the
 # authentication flow, not a health problem; the authorisation URL is
 # advertised to login shells instead.
-if [ -f /var/lib/tailscale/provisioned ]; then
-  if systemctl is-active --quiet tailscaled.service; then
-    workshopctl set-health okay
-  else
-    workshopctl set-health --code=daemon-not-running error \
-      "tailscaled is not running after state restore"
-  fi
-else
-  systemctl start tailscale-auth.service
-  if systemctl is-active --quiet tailscale-auth.service; then
-    workshopctl set-health okay
-  else
-    workshopctl set-health --code=auth-service-failed error \
-      "the authentication service failed to start"
-  fi
+systemctl start tailscaled.service || true
+if ! systemctl is-active --quiet tailscaled.service; then
+  workshopctl set-health --code=daemon-not-running error \
+    "tailscaled is not running after startup"
+  exit 0
 fi
+login=0
+/var/lib/workshop/sdk/tailscale/tailscale-needs-login || login=$?
+case "$login" in
+  1)
+    workshopctl set-health okay
+    ;;
+  0)
+    if systemctl is-active --quiet tailscale-auth.service; then
+      workshopctl set-health okay
+    else
+      workshopctl set-health --code=auth-service-failed error \
+        "the authentication service failed to start"
+    fi
+    ;;
+  *)
+    workshopctl set-health --code=login-state-unknown error \
+      "cannot determine the Tailscale login state"
+    ;;
+esac

@@ -3,14 +3,14 @@
 set -euo pipefail
 
 # The Tailscale node state lives in the container filesystem, which a
-# refresh rebuilds, so preserve a provisioned node's state in the SDK
-# state directory. Only a completed provisioning run has the marker
-# that tailscale-up.service touches, so interrupted attempts are left
-# behind, matching what restore-state re-enters. Stopping the daemon
+# refresh rebuilds, so preserve it in the SDK state directory. Copying
+# whenever the daemon has a state directory also covers logged-out
+# nodes: their state round-trips to the same logged-out result, and
+# the authentication flow re-runs by itself. Stopping the daemon
 # first keeps the state files quiescent for the copy, and keeps the
 # refresh out of tailscale-stop's shutdown-time deregistration: the
 # daemon is gone long before the teardown shutdown runs.
-if [ -f /var/lib/tailscale/provisioned ]; then
+if [ -d /var/lib/tailscale ]; then
   systemctl stop tailscaled.service
   mkdir -p "$SDK_STATE_DIR"
   cp -a /var/lib/tailscale "$SDK_STATE_DIR/"

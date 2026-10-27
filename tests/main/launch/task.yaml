@@ -19,12 +19,16 @@ execute: |
   workshop exec -- test -f /etc/systemd/system/tailscale-up.service
   workshop exec -- systemctl is-enabled tailscale-up.path | MATCH 'enabled'
   workshop exec -- systemctl is-active tailscale-up.path | MATCH 'active'
-  workshop exec -- sh -c 'test "$(systemctl is-enabled tailscaled.service)" = disabled'
-  workshop exec -- sh -c 'test "$(systemctl is-active tailscaled.service)" = inactive'
+  workshop exec -- sh -c 'test "$(systemctl is-enabled tailscaled.service)" = enabled'
+  workshop exec -- sh -c 'test "$(systemctl is-active tailscaled.service)" = active'
+  # The daemon pulls the authentication flow in; its ExecCondition
+  # decides from the daemon's login state whether the flow runs.
+  workshop exec -- systemctl show tailscaled.service --property=Wants --value | MATCH 'tailscale-auth.service'
   workshop exec -- systemctl cat tailscale-up.service | MATCH 'auth-key=file:/run/user/1000/tailscale/auth-key'
   workshop exec -- systemctl cat tailscale-up.service | MATCH 'operator=workshop'
   workshop exec -- test -f /etc/systemd/system/tailscale-auth.service
-  workshop exec -- systemctl is-enabled tailscale-auth.service | MATCH 'enabled'
+  workshop exec -- systemctl cat tailscale-auth.service | MATCH 'ExecCondition='
+  workshop exec -- systemctl is-active tailscale-auth.service | MATCH 'active'
   workshop exec -- systemctl show tailscale-auth.service --property=User --value | MATCH '^workshop$'
   workshop exec -- systemctl cat tailscale-auth.service | MATCH 'LoadCredential=tailscale.tailscale-oauth-app:/var/lib/workshop/run/workshop.socket.secret'
   workshop exec -- test ! -e /home/workshop/.config/systemd/user/tailscale-auth.service

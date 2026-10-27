@@ -2,20 +2,18 @@
 
 set -euo pipefail
 
-
-
-# Re-enter the pre-refresh provisioning state. Only a completed
-# provisioning run leaves the marker that tailscale-up.service touches
-# after "tailscale up" succeeds; tailscaled creates its state directory
-# before that, so the marker alone distinguishes a provisioned node from
-# an interrupted attempt. Without it, fall through and let check-health
-# start the authentication service from the beginning.
+# Re-enter the pre-refresh node state. Setup-base has already enabled
+# the daemon but deliberately not started it, so restoring merges the
+# saved state before the daemon first runs. Starting it here lets the
+# dependency graph decide what happens next: tailscale-auth.service's
+# ExecCondition asks the daemon whether login is needed and skips the
+# whole flow for a node restored logged in.
 state="$SDK_STATE_DIR/tailscale"
-if [ -f "$state/provisioned" ]; then
+if [ -d "$state" ]; then
   install -d --mode=700 /var/lib/tailscale
   cp -a "$state/." /var/lib/tailscale/
-  # Enable afresh: the rebuilt container's systemd has no record of
-  # the enablement tailscale-up.service performed at provisioning.
-  systemctl enable tailscaled.service
+  # Saved state from earlier SDK versions carries a provisioned
+  # marker file that nothing reads anymore; drop it.
+  rm -f /var/lib/tailscale/provisioned
   systemctl start tailscaled.service
 fi

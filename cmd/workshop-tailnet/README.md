@@ -66,18 +66,21 @@ including the shell that "workshop shell" opens.
 
 A workshop refresh rebuilds the container, which discards the Tailscale
 node state in `/var/lib/tailscale`. The `save-state` and `restore-state`
-hooks preserve it in the SDK state directory across the refresh,
-re-entering the pre-refresh state: only the `provisioned` marker that
-`tailscale-up.service` touches on success counts, so a refresh during
-provisioning falls back to the normal authentication flow, while a
-provisioned node's restore brings `tailscaled` up from the saved state
-directly.
+hooks preserve it in the SDK state directory across the refresh, and
+`restore-state` starts the daemon from the restored state directly.
 
-The base setup hook installs and enables the authentication service
-but leaves starting it to the `check-health` hook, which runs after
-state restoration and starts the OAuth flow only when no provisioned
-marker exists. A provisioned workshop is therefore never re-authorised
-and makes no authorisation requests when refreshed.
+The daemon's own login state, not a marker file, drives the flow:
+`tailscaled` wants the authentication service, whose `ExecCondition`
+asks the daemon whether login is needed and skips the whole flow for a
+node that is already logged in. The base setup hook therefore only
+enables the daemon and never starts anything: on a refresh,
+`restore-state` must merge the saved state before the daemon first
+runs, and on a fresh launch the `check-health` hook performs the first
+start, which pulls the authentication flow in exactly when it is
+needed. A provisioned workshop is therefore never re-authorised and
+makes no authorisation requests when refreshed, and a node whose key
+expired server-side re-enters the flow by itself instead of being
+reported healthy on stale evidence.
 
 The `tailscaled` unit deregisters the node when the container shuts
 down: workshop stop and workshop remove are indistinguishable inside

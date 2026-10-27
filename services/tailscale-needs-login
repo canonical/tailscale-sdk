@@ -1,0 +1,51 @@
+#!/bin/bash
+
+set -euo pipefail
+
+# Report whether tailscaled holds a logged-in node, from the daemon
+# itself rather than any marker file. Exit 0 when the daemon needs
+# login, 1 when it is logged in, 2 when the state cannot be
+# determined. tailscale-auth.service runs this from ExecCondition,
+# where any exit from 0 through 254 cleanly skips the unit, and
+# check-health and tailscale-stop branch on the exit status.
+#
+# "logged in" means the profile holds a node key, so a restored node
+# counts while it is still reconnecting to the coordination server
+# ("Starting"), which can outlast any reasonable wait. "NeedsLogin"
+# must persist for three consecutive checks before it triggers the
+# flow: right after the daemon starts, before its profile is loaded,
+# the backend can report NeedsLogin briefly even for a logged-in
+# node. A persistent NeedsLogin with a key means the key was rejected
+# server-side, and the flow re-runs.
+#
+# The daemon's socket may not exist for a moment after its unit start
+# job completes, because tailscaled runs as Type=simple: retry until
+# the backend settles. Status JSON is indented, so key matching
+# tolerates the space after the colon.
+consecutive=0
+tries=15
+while [ "$tries" -gt 0 ]; do
+  json=$(/var/lib/workshop/sdk/tailscale/bin/tailscale \
+    --socket=/run/tailscale/tailscaled.sock \
+    status --json 2>/dev/null || true)
+  state=$(printf '%s' "$json" \
+    | grep -oE '"BackendState":[[:space:]]*"[^"]*"' | cut -d'"' -f4) || state=""
+  key=$(printf '%s' "$json" | grep -oE '"HaveNodeKey":[[:space:]]*true') || key=""
+  if [ "$state" = "Running" ]; then
+    exit 1
+  fi
+  if [ "$state" = "NeedsLogin" ]; then
+    consecutive=$((consecutive + 1))
+    if [ "$consecutive" -ge 3 ]; then
+      exit 0
+    fi
+  else
+    consecutive=0
+    if [ -n "$key" ]; then
+      exit 1
+    fi
+  fi
+  tries=$((tries - 1))
+  sleep 1
+done
+exit 2

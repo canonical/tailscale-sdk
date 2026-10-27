@@ -8,19 +8,21 @@ set -euo pipefail
 # container shutdown exactly when a start job for shutdown.target is
 # pending; individual stops must keep the node. save-state relies on
 # that: it stops the daemon before the refresh teardown, so a refresh
-# never deregisters, and neither do manual stops or crashes.
-if [ ! -f /var/lib/tailscale/provisioned ]; then
+# never deregisters, and neither do manual stops or crashes. The
+# daemon's own login state decides whether there is anything to
+# deregister at all; an undetermined state keeps the node.
+login=0
+/var/lib/workshop/sdk/tailscale/tailscale-needs-login || login=$?
+if [ "$login" -ne 1 ]; then
   exit 0
 fi
 jobs=$(/usr/bin/systemctl list-jobs --no-legend shutdown.target)
 if [ -z "$jobs" ]; then
   exit 0
 fi
-# Workshop stop and remove are indistinguishable in-container, so both
-# deregister: a later start re-runs the authentication flow. Remove the
-# provisioning marker so that flow is not blocked by a registration
-# that no longer exists. If the logout fails, keep both: the
-# registration may still be valid server-side.
+# Workshop stop and remove are indistinguishable inside the container,
+# so both deregister: a later start sees the logged-out state left by
+# the logout and re-runs the authentication flow. If the logout fails,
+# keep the registration: it may still be valid server-side.
 /var/lib/workshop/sdk/tailscale/bin/tailscale \
   --socket=/run/tailscale/tailscaled.sock logout
-/usr/bin/rm -f /var/lib/tailscale/provisioned
