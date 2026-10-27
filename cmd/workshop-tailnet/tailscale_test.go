@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/juju/tc"
@@ -21,7 +22,8 @@ func TestTailscaleSuite(t *testing.T) {
 func (tailscaleSuite) TestCreateOAuthApp(c *tc.C) {
 	const token = "test-admin-token"
 	args := CreateOAuthAppArgs{
-		Name: "custom-workshop",
+		AllowedNodeAttributes: []string{defaultNodeAttribute, "ci"},
+		Name:                  "custom-workshop",
 		RedirectURIs: []string{
 			"http://127.0.0.1:8765/callback",
 			"https://example.com/callback",
@@ -44,12 +46,18 @@ func (tailscaleSuite) TestCreateOAuthApp(c *tc.C) {
 			err := json.NewDecoder(r.Body).Decode(&request)
 			c.Check(err, tc.IsNil)
 			c.Check(request, tc.DeepEquals, createOAuthAppRequest{
+				AllowedNodeAttributes: prefixedNodeAttributes(
+					args.AllowedNodeAttributes,
+				),
 				Name:         args.Name,
 				RedirectURIs: args.RedirectURIs,
 				Scopes:       args.Scopes,
 			})
 			w.WriteHeader(http.StatusCreated)
 			_ = json.NewEncoder(w).Encode(oauthApp{
+				AllowedNodeAttributes: prefixedNodeAttributes(
+					args.AllowedNodeAttributes,
+				),
 				ClientSecret: "test-secret",
 				ID:           "app-test",
 				Name:         defaultAppName,
@@ -70,7 +78,9 @@ func (tailscaleSuite) TestCreateOAuthApp(c *tc.C) {
 		args,
 	)
 	c.Assert(err, tc.IsNil)
-	c.Check(app, tc.DeepEquals, createdApp("test-secret"))
+	expected := createdApp("test-secret")
+	expected.AllowedNodeAttributes = args.AllowedNodeAttributes
+	c.Check(app, tc.DeepEquals, expected)
 }
 
 // TestDeleteOAuthApp checks deletion requests and absent-app handling.
@@ -152,6 +162,16 @@ func (tailscaleSuite) TestExchangeAuthCode(c *tc.C) {
 			c.Check(r.Form.Get("client_id"), tc.Equals, "app-test")
 			c.Check(r.Form.Get("client_secret"), tc.Equals, "test-secret")
 			c.Check(r.Form.Get("code"), tc.Equals, "test-code")
+			c.Check(
+				r.Form.Get("node_attributes"),
+				tc.Equals,
+				strings.Join(
+					prefixedNodeAttributes(
+						[]string{defaultNodeAttribute, "ci"},
+					),
+					",",
+				),
+			)
 			c.Check(r.Form.Get("redirect_uri"), tc.Equals, defaultRedirectURI)
 			_ = json.NewEncoder(w).Encode(oauthTokenResponse{
 				AccessToken: "test-one-time-token",
@@ -169,10 +189,11 @@ func (tailscaleSuite) TestExchangeAuthCode(c *tc.C) {
 	token, err := client.ExchangeAuthCode(
 		c.Context(),
 		ExchangeAuthCodeArgs{
-			ClientID:     "app-test",
-			ClientSecret: "test-secret",
-			Code:         "test-code",
-			RedirectURI:  defaultRedirectURI,
+			ClientID:       "app-test",
+			ClientSecret:   "test-secret",
+			Code:           "test-code",
+			NodeAttributes: []string{defaultNodeAttribute, "ci"},
+			RedirectURI:    defaultRedirectURI,
 		},
 	)
 	c.Assert(err, tc.IsNil)
@@ -191,6 +212,9 @@ func (tailscaleSuite) TestGetOAuthApp(c *tc.C) {
 			c.Check(username, tc.Equals, token)
 			c.Check(password, tc.Equals, "")
 			_ = json.NewEncoder(w).Encode(oauthApp{
+				AllowedNodeAttributes: prefixedNodeAttributes(
+					[]string{defaultNodeAttribute},
+				),
 				ID:           "app-test",
 				Name:         defaultAppName,
 				RedirectURIs: []string{defaultRedirectURI},
@@ -224,6 +248,9 @@ func (tailscaleSuite) TestListOAuthApps(c *tc.C) {
 			response := listOAuthAppsResponse{
 				OAuthApps: []oauthApp{
 					{
+						AllowedNodeAttributes: prefixedNodeAttributes(
+							[]string{defaultNodeAttribute},
+						),
 						ID:           "app-test",
 						Name:         defaultAppName,
 						RedirectURIs: []string{defaultRedirectURI},

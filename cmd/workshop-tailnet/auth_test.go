@@ -22,11 +22,12 @@ type authSuite struct{}
 
 func testOAuthApp(redirectURI string) storedOAuthApp {
 	return storedOAuthApp{
-		ClientID:     "app-test",
-		ClientSecret: "test-client-secret",
-		Name:         defaultAppName,
-		RedirectURIs: []string{redirectURI},
-		Scopes:       []string{provisioningScope},
+		AllowedNodeAttributes: []string{defaultNodeAttribute},
+		ClientID:              "app-test",
+		ClientSecret:          "test-client-secret",
+		Name:                  defaultAppName,
+		RedirectURIs:          []string{redirectURI},
+		Scopes:                []string{provisioningScope},
 	}
 }
 
@@ -60,6 +61,33 @@ func (authSuite) TestAuthenticateRejectsEmptyCredential(c *tc.C) {
 	)
 	c.Assert(err, tc.NotNil)
 	c.Check(err.Error(), tc.Contains, "credential is empty")
+}
+
+// TestAuthenticateRejectsLegacyCredential checks that a credential saved
+// before node attributes were allowlisted fails with re-setup guidance.
+func (authSuite) TestAuthenticateRejectsLegacyCredential(c *tc.C) {
+	legacy := `{
+  "client_id": "app-test",
+  "client_secret": "test-client-secret",
+  "name": "Canonical-Workshop",
+  "redirect_uris": ["http://127.0.0.1:8765/callback"],
+  "scopes": ["auth_keys:create:once"]
+}`
+	configPath := filepath.Join(c.MkDir(), "oauth-app.json")
+	err := os.WriteFile(configPath, []byte(legacy), 0o600)
+	c.Assert(err, tc.IsNil)
+	var output strings.Builder
+
+	err = authenticate(
+		c.Context(),
+		nil,
+		configPath,
+		filepath.Join(c.MkDir(), "auth-key"),
+		&output,
+	)
+	c.Assert(err, tc.NotNil)
+	c.Check(err.Error(), tc.Contains, "at least one node attribute")
+	c.Check(err.Error(), tc.Contains, "re-run workshop-tailnet setup")
 }
 
 // TestAuthenticateRejectsInvalidState checks OAuth CSRF protection.
@@ -173,10 +201,11 @@ func (authSuite) TestAuthenticateSavesOneTimeToken(c *tc.C) {
 	err = <-result
 	c.Assert(err, tc.IsNil)
 	c.Check(provisioner.args, tc.DeepEquals, ExchangeAuthCodeArgs{
-		ClientID:     "app-test",
-		ClientSecret: "test-client-secret",
-		Code:         "test-code",
-		RedirectURI:  app.RedirectURIs[0],
+		ClientID:       "app-test",
+		ClientSecret:   "test-client-secret",
+		Code:           "test-code",
+		NodeAttributes: []string{defaultNodeAttribute},
+		RedirectURI:    app.RedirectURIs[0],
 	})
 	encoded, err := os.ReadFile(authKeyPath)
 	c.Assert(err, tc.IsNil)

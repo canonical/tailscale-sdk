@@ -43,6 +43,10 @@ type ExchangeAuthCodeArgs struct {
 	// Code is the authorisation code returned by the OAuth callback.
 	Code string
 
+	// NodeAttributes lists the node attributes stamped on the device
+	// registered with the exchanged key.
+	NodeAttributes []string
+
 	// RedirectURI is the callback URI used to request the code.
 	RedirectURI string
 }
@@ -194,6 +198,29 @@ func loadOAuthApp(path string) (storedOAuthApp, error) {
 			provisioningScope,
 		)
 	}
+	if len(app.AllowedNodeAttributes) == 0 {
+		return app, fmt.Errorf(
+			"OAuth app credential must include at least one node " +
+				"attribute; re-run workshop-tailnet setup to register a " +
+				"current app",
+		)
+	}
+	return app, nil
+}
+
+// readStoredOAuthApp decodes a stored credential without validating that
+// it satisfies the current provisioning requirements, so cleanup can
+// still match credentials saved by older revisions.
+func readStoredOAuthApp(path string) (storedOAuthApp, error) {
+	var app storedOAuthApp
+	encoded, err := os.ReadFile(path)
+	if err != nil {
+		return app, fmt.Errorf("reading OAuth app credential: %w", err)
+	}
+	err = json.Unmarshal(encoded, &app)
+	if err != nil {
+		return app, fmt.Errorf("decoding OAuth app credential: %w", err)
+	}
 	return app, nil
 }
 
@@ -243,10 +270,11 @@ func makeAuthHandler(
 		token, err := provisioner.ExchangeAuthCode(
 			ctx,
 			ExchangeAuthCodeArgs{
-				ClientID:     app.ClientID,
-				ClientSecret: app.ClientSecret,
-				Code:         code,
-				RedirectURI:  app.RedirectURIs[0],
+				ClientID:       app.ClientID,
+				ClientSecret:   app.ClientSecret,
+				Code:           code,
+				NodeAttributes: app.AllowedNodeAttributes,
+				RedirectURI:    app.RedirectURIs[0],
 			},
 		)
 		if err != nil {

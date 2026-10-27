@@ -20,27 +20,46 @@ const oauthAppsPath = "/api/v2/tailnet/-/oauth-apps"
 
 func createdApp(secret string) OAuthApp {
 	return OAuthApp{
-		ClientSecret: secret,
-		ID:           "app-test",
-		Name:         defaultAppName,
-		RedirectURIs: []string{defaultRedirectURI},
-		Scopes:       []string{provisioningScope},
+		AllowedNodeAttributes: []string{defaultNodeAttribute},
+		ClientSecret:          secret,
+		ID:                    "app-test",
+		Name:                  defaultAppName,
+		RedirectURIs:          []string{defaultRedirectURI},
+		Scopes:                []string{provisioningScope},
 	}
 }
 
 func verifiedApp() OAuthApp {
 	return OAuthApp{
-		ClientSecret: "",
-		ID:           "app-test",
-		Name:         defaultAppName,
-		RedirectURIs: []string{defaultRedirectURI},
-		Scopes:       []string{provisioningScope},
+		AllowedNodeAttributes: []string{defaultNodeAttribute},
+		ClientSecret:          "",
+		ID:                    "app-test",
+		Name:                  defaultAppName,
+		RedirectURIs:          []string{defaultRedirectURI},
+		Scopes:                []string{provisioningScope},
 	}
 }
 
 // TestSetupSuite registers the interactive setup behaviour tests.
 func TestSetupSuite(t *testing.T) {
 	tc.Run(t, &setupSuite{})
+}
+
+// TestParseNodeAttributes checks splitting, trimming, automatic prefix
+// removal, and empty-value handling for attribute input.
+func (setupSuite) TestParseNodeAttributes(c *tc.C) {
+	c.Check(
+		parseNodeAttributes("ci, staging"),
+		tc.DeepEquals,
+		[]string{"ci", "staging"},
+	)
+	c.Check(
+		parseNodeAttributes(" custom:ci ,, x "),
+		tc.DeepEquals,
+		[]string{"ci", "x"},
+	)
+	c.Check(parseNodeAttributes(""), tc.DeepEquals, []string(nil))
+	c.Check(parseNodeAttributes(" , ,"), tc.DeepEquals, []string(nil))
 }
 
 // TestPrompterSecretErrorIncludesLabel checks contextual secret read errors.
@@ -123,7 +142,7 @@ func (setupSuite) TestSetupCanBeCancelled(c *tc.C) {
 	var output bytes.Buffer
 	prompt := &fakePrompter{
 		confirmation: false,
-		inputs:       []string{defaultAppName, defaultRedirectURI},
+		inputs:       []string{defaultAppName, defaultRedirectURI, ""},
 		secretValue:  "test-token",
 	}
 	client := &fakeOAuthAppClient{}
@@ -148,7 +167,7 @@ func (setupSuite) TestSetupCreatesVerifiesAndStoresOAuthApp(c *tc.C) {
 	var output bytes.Buffer
 	prompt := &fakePrompter{
 		confirmation: true,
-		inputs:       []string{defaultAppName, defaultRedirectURI},
+		inputs:       []string{defaultAppName, defaultRedirectURI, ""},
 		secretValue:  token,
 	}
 	client := &fakeOAuthAppClient{
@@ -162,9 +181,10 @@ func (setupSuite) TestSetupCreatesVerifiesAndStoresOAuthApp(c *tc.C) {
 	c.Assert(client.getCalls, tc.Equals, 1)
 	c.Check(client.token, tc.Equals, token)
 	c.Check(client.createArgs, tc.DeepEquals, CreateOAuthAppArgs{
-		Name:         defaultAppName,
-		RedirectURIs: []string{defaultRedirectURI},
-		Scopes:       []string{provisioningScope},
+		AllowedNodeAttributes: []string{defaultNodeAttribute},
+		Name:                  defaultAppName,
+		RedirectURIs:          []string{defaultRedirectURI},
+		Scopes:                []string{provisioningScope},
 	})
 
 	encoded, err := os.ReadFile(configPath)
@@ -173,11 +193,12 @@ func (setupSuite) TestSetupCreatesVerifiesAndStoresOAuthApp(c *tc.C) {
 	err = json.Unmarshal(encoded, &stored)
 	c.Assert(err, tc.IsNil)
 	expected := storedOAuthApp{
-		ClientID:     "app-test",
-		ClientSecret: secret,
-		Name:         defaultAppName,
-		RedirectURIs: []string{defaultRedirectURI},
-		Scopes:       []string{provisioningScope},
+		AllowedNodeAttributes: []string{defaultNodeAttribute},
+		ClientID:              "app-test",
+		ClientSecret:          secret,
+		Name:                  defaultAppName,
+		RedirectURIs:          []string{defaultRedirectURI},
+		Scopes:                []string{provisioningScope},
 	}
 	c.Check(stored, tc.DeepEquals, expected)
 	c.Check(bytes.Contains(encoded, []byte(token)), tc.IsFalse)
@@ -197,7 +218,7 @@ func (setupSuite) TestSetupDetectsVerificationMismatch(c *tc.C) {
 	var output bytes.Buffer
 	prompt := &fakePrompter{
 		confirmation: true,
-		inputs:       []string{defaultAppName, defaultRedirectURI},
+		inputs:       []string{defaultAppName, defaultRedirectURI, ""},
 		secretValue:  "token",
 	}
 	verified := verifiedApp()
@@ -213,6 +234,92 @@ func (setupSuite) TestSetupDetectsVerificationMismatch(c *tc.C) {
 	c.Check(err.Error(), tc.Contains, "did not match")
 	_, statErr := os.Stat(configPath)
 	c.Check(statErr, tc.IsNil)
+}
+
+// TestSetupPromptsForNodeAttributes checks that setup offers a
+// comma-separated node attribute list with the workshop attribute as the
+// default.
+func (setupSuite) TestSetupPromptsForNodeAttributes(c *tc.C) {
+	configPath := filepath.Join(c.MkDir(), "oauth-app.json")
+	var output bytes.Buffer
+	prompt := &fakePrompter{
+		confirmation: true,
+		inputs: []string{
+			defaultAppName,
+			defaultRedirectURI,
+			" workshop, custom:ci , staging, ",
+		},
+		secretValue: "test-admin-token",
+	}
+	client := &fakeOAuthAppClient{
+		createApp: createdApp("test-secret"),
+		getApp:    verifiedApp(),
+	}
+
+	err := setup(c.Context(), prompt, client, nil, configPath, &output)
+	c.Assert(err, tc.IsNil, tc.Commentf("output:\n%s", output.String()))
+	c.Check(
+		client.createArgs.AllowedNodeAttributes,
+		tc.DeepEquals,
+		[]string{defaultNodeAttribute, "ci", "staging"},
+	)
+	c.Check(output.String(), tc.Contains, "workshop, ci, staging")
+}
+
+// TestSetupDefaultsNodeAttributes checks that accepting the prompt default
+// allowlists only the workshop attribute.
+func (setupSuite) TestSetupDefaultsNodeAttributes(c *tc.C) {
+	configPath := filepath.Join(c.MkDir(), "oauth-app.json")
+	var output bytes.Buffer
+	prompt := &fakePrompter{
+		confirmation: true,
+		inputs: []string{
+			defaultAppName,
+			defaultRedirectURI,
+			defaultNodeAttribute,
+		},
+		secretValue: "test-admin-token",
+	}
+	client := &fakeOAuthAppClient{
+		createApp: createdApp("test-secret"),
+		getApp:    verifiedApp(),
+	}
+
+	err := setup(c.Context(), prompt, client, nil, configPath, &output)
+	c.Assert(err, tc.IsNil, tc.Commentf("output:\n%s", output.String()))
+	c.Check(
+		client.createArgs.AllowedNodeAttributes,
+		tc.DeepEquals,
+		[]string{defaultNodeAttribute},
+	)
+}
+
+// TestSetupOverridesDefaultNodeAttribute checks that setup accepts an
+// attribute list without the workshop attribute.
+func (setupSuite) TestSetupOverridesDefaultNodeAttribute(c *tc.C) {
+	configPath := filepath.Join(c.MkDir(), "oauth-app.json")
+	var output bytes.Buffer
+	prompt := &fakePrompter{
+		confirmation: true,
+		inputs: []string{
+			defaultAppName,
+			defaultRedirectURI,
+			"ci, staging",
+		},
+		secretValue: "test-admin-token",
+	}
+	client := &fakeOAuthAppClient{
+		createApp: createdApp("test-secret"),
+		getApp:    verifiedApp(),
+	}
+
+	err := setup(c.Context(), prompt, client, nil, configPath, &output)
+	c.Assert(err, tc.IsNil, tc.Commentf("output:\n%s", output.String()))
+	c.Check(
+		client.createArgs.AllowedNodeAttributes,
+		tc.DeepEquals,
+		[]string{"ci", "staging"},
+	)
 }
 
 // TestSetupRejectsExistingCredentials checks that setup cannot overwrite them.
@@ -240,6 +347,7 @@ func (setupSuite) TestSetupRetriesInvalidRedirectURI(c *tc.C) {
 			defaultAppName,
 			"http://example.com/callback",
 			defaultRedirectURI,
+			"",
 		},
 		secretValue: "test-token",
 	}
@@ -259,7 +367,7 @@ func (setupSuite) TestSetupVerificationFailurePreservesCredentials(c *tc.C) {
 	var output bytes.Buffer
 	prompt := &fakePrompter{
 		confirmation: true,
-		inputs:       []string{defaultAppName, defaultRedirectURI},
+		inputs:       []string{defaultAppName, defaultRedirectURI, ""},
 		secretValue:  "token",
 	}
 	client := &fakeOAuthAppClient{

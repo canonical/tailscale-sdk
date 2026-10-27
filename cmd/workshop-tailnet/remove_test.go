@@ -21,11 +21,12 @@ func TestRemoveSuite(t *testing.T) {
 
 func storedOAuthAppForID(id string) storedOAuthApp {
 	return storedOAuthApp{
-		ClientID:     id,
-		ClientSecret: "test-client-secret",
-		Name:         defaultAppName,
-		RedirectURIs: []string{defaultRedirectURI},
-		Scopes:       []string{provisioningScope},
+		AllowedNodeAttributes: []string{defaultNodeAttribute},
+		ClientID:              id,
+		ClientSecret:          "test-client-secret",
+		Name:                  defaultAppName,
+		RedirectURIs:          []string{defaultRedirectURI},
+		Scopes:                []string{provisioningScope},
 	}
 }
 
@@ -110,6 +111,41 @@ func (removeSuite) TestRemoveDeletesAppAndLocalCredentials(c *tc.C) {
 	c.Check(stdout.String(), tc.Contains, "OAuth app app-test removed")
 	c.Check(stdout.String(), tc.Contains, "Local credentials")
 	c.Check(strings.Contains(stdout.String(), "test-admin-token"), tc.IsFalse)
+}
+
+// TestRemoveDeletesLegacyLocalCredentials checks that local cleanup still
+// matches credentials saved before node attributes were allowlisted.
+func (removeSuite) TestRemoveDeletesLegacyLocalCredentials(c *tc.C) {
+	legacy := `{
+  "client_id": "app-test",
+  "client_secret": "test-client-secret",
+  "name": "Canonical-Workshop",
+  "redirect_uris": ["http://127.0.0.1:8765/callback"],
+  "scopes": ["auth_keys:create:once"]
+}`
+	configPath := filepath.Join(c.MkDir(), "oauth-app.json")
+	err := os.WriteFile(configPath, []byte(legacy), 0o600)
+	c.Assert(err, tc.IsNil)
+	var stdout bytes.Buffer
+	prompt := &fakePrompter{
+		confirmation: true,
+		secretValue:  "test-admin-token",
+	}
+	client := &fakeOAuthAppClient{}
+
+	err = removeOAuthApp(
+		c.Context(),
+		prompt,
+		client,
+		"app-test",
+		configPath,
+		&stdout,
+	)
+	c.Assert(err, tc.IsNil, tc.Commentf("output:\n%s", stdout.String()))
+	c.Check(client.deleteCalls, tc.Equals, 1)
+	_, statErr := os.Stat(configPath)
+	c.Check(os.IsNotExist(statErr), tc.IsTrue)
+	c.Check(stdout.String(), tc.Contains, "Local credentials")
 }
 
 // TestRemoveLeavesUnrelatedLocalCredentials checks ID matching.

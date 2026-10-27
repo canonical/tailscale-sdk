@@ -60,7 +60,7 @@ The token is used for this removal only and is not saved.
 }
 
 func removeStoredOAuthApp(path string, id string) (bool, error) {
-	app, err := loadOAuthApp(path)
+	app, err := readStoredOAuthApp(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return false, nil
 	} else if err != nil {

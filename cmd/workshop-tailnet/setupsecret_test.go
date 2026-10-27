@@ -22,11 +22,12 @@ func checkSetupSecret(c *tc.C, encoded []byte, name, secret string) {
 	err := json.Unmarshal(encoded, &stored)
 	c.Assert(err, tc.IsNil)
 	c.Check(stored, tc.DeepEquals, storedOAuthApp{
-		ClientID:     "app-test",
-		ClientSecret: secret,
-		Name:         name,
-		RedirectURIs: []string{defaultRedirectURI},
-		Scopes:       []string{provisioningScope},
+		AllowedNodeAttributes: []string{defaultNodeAttribute},
+		ClientID:              "app-test",
+		ClientSecret:          secret,
+		Name:                  name,
+		RedirectURIs:          []string{defaultRedirectURI},
+		Scopes:                []string{provisioningScope},
 	})
 }
 
@@ -73,7 +74,7 @@ func checkSetupSecretYAML(c *tc.C, output, name string) {
 func setupSecretPrompt(name string) *fakePrompter {
 	return &fakePrompter{
 		confirmation: true,
-		inputs:       []string{name, defaultRedirectURI},
+		inputs:       []string{name, defaultRedirectURI, ""},
 		secretValue:  "test-admin-token",
 	}
 }
@@ -200,11 +201,12 @@ func (setupSecretSuite) TestCreationMetadata(c *tc.C) {
 			err = json.Unmarshal(store.storeArgs.Secret, &stored)
 			tc.Assert(c, err, tc.IsNil)
 			tc.Check(c, stored, tc.DeepEquals, storedOAuthApp{
-				ClientID:     "app-test",
-				ClientSecret: secret,
-				Name:         defaultAppName,
-				RedirectURIs: []string{defaultRedirectURI},
-				Scopes:       []string{provisioningScope},
+				AllowedNodeAttributes: []string{defaultNodeAttribute},
+				ClientID:              "app-test",
+				ClientSecret:          secret,
+				Name:                  defaultAppName,
+				RedirectURIs:          []string{defaultRedirectURI},
+				Scopes:                []string{provisioningScope},
 			})
 		})
 	}
@@ -317,9 +319,10 @@ func (setupSecretSuite) TestSuccess(c *tc.C) {
 	c.Check(client.getCalls, tc.Equals, 1)
 	c.Check(client.token, tc.Equals, prompt.secretValue)
 	c.Check(client.createArgs, tc.DeepEquals, CreateOAuthAppArgs{
-		Name:         defaultAppName,
-		RedirectURIs: []string{defaultRedirectURI},
-		Scopes:       []string{provisioningScope},
+		AllowedNodeAttributes: []string{defaultNodeAttribute},
+		Name:                  defaultAppName,
+		RedirectURIs:          []string{defaultRedirectURI},
+		Scopes:                []string{provisioningScope},
 	})
 	c.Check(store.lookupCalls, tc.Equals, 1)
 	c.Check(store.storeCalls, tc.Equals, 1)

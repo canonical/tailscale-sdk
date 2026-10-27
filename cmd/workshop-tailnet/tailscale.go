@@ -14,9 +14,10 @@ import (
 
 // createOAuthAppRequest is the JSON payload for app registration.
 type createOAuthAppRequest struct {
-	Name         string   `json:"name"`
-	RedirectURIs []string `json:"redirectUris"`
-	Scopes       []string `json:"scopes"`
+	AllowedNodeAttributes []string `json:"allowedNodeAttributes"`
+	Name                  string   `json:"name"`
+	RedirectURIs          []string `json:"redirectUris"`
+	Scopes                []string `json:"scopes"`
 }
 
 type listOAuthAppsResponse struct {
@@ -24,11 +25,12 @@ type listOAuthAppsResponse struct {
 }
 
 type oauthApp struct {
-	ClientSecret string   `json:"clientSecret,omitempty"`
-	ID           string   `json:"id"`
-	Name         string   `json:"name"`
-	RedirectURIs []string `json:"redirectURIs"`
-	Scopes       []string `json:"scopes"`
+	AllowedNodeAttributes []string `json:"allowedNodeAttributes,omitempty"`
+	ClientSecret          string   `json:"clientSecret,omitempty"`
+	ID                    string   `json:"id"`
+	Name                  string   `json:"name"`
+	RedirectURIs          []string `json:"redirectURIs"`
+	Scopes                []string `json:"scopes"`
 }
 
 type oauthTokenResponse struct {
@@ -43,9 +45,31 @@ type tailscaleClient struct {
 }
 
 const (
-	provisioningScope = "auth_keys:create:once"
-	tailscaleAPIURL   = "https://api.tailscale.com"
+	defaultNodeAttribute = "workshop"
+	nodeAttributePrefix  = "custom:"
+	provisioningScope    = "auth_keys:create:once"
+	tailscaleAPIURL      = "https://api.tailscale.com"
 )
+
+// prefixedNodeAttributes adds the node-attribute prefix required by the
+// Tailscale API to each attribute.
+func prefixedNodeAttributes(attributes []string) []string {
+	prefixed := make([]string, 0, len(attributes))
+	for _, attribute := range attributes {
+		prefixed = append(prefixed, nodeAttributePrefix+attribute)
+	}
+	return prefixed
+}
+
+// unprefixedNodeAttributes removes the node-attribute prefix from each
+// attribute so callers see the plain names.
+func unprefixedNodeAttributes(attributes []string) []string {
+	plain := make([]string, 0, len(attributes))
+	for _, attribute := range attributes {
+		plain = append(plain, strings.TrimPrefix(attribute, nodeAttributePrefix))
+	}
+	return plain
+}
 
 // CreateOAuthApp registers an app with the supplied configuration.
 func (c tailscaleClient) CreateOAuthApp(
@@ -54,6 +78,9 @@ func (c tailscaleClient) CreateOAuthApp(
 	args CreateOAuthAppArgs,
 ) (OAuthApp, error) {
 	request := createOAuthAppRequest{
+		AllowedNodeAttributes: prefixedNodeAttributes(
+			args.AllowedNodeAttributes,
+		),
 		Name:         args.Name,
 		RedirectURIs: args.RedirectURIs,
 		Scopes:       args.Scopes,
@@ -185,6 +212,12 @@ func (c tailscaleClient) ExchangeAuthCode(
 	form.Set("client_secret", args.ClientSecret)
 	form.Set("code", args.Code)
 	form.Set("grant_type", "authorization_code")
+	if len(args.NodeAttributes) > 0 {
+		form.Set(
+			"node_attributes",
+			strings.Join(prefixedNodeAttributes(args.NodeAttributes), ","),
+		)
+	}
 	form.Set("redirect_uri", args.RedirectURI)
 	req, err := http.NewRequestWithContext(
 		ctx,
@@ -286,6 +319,9 @@ func sameStrings(left, right []string) bool {
 // toOAuthApp maps the wire response to the interface result.
 func (app oauthApp) toOAuthApp() OAuthApp {
 	return OAuthApp{
+		AllowedNodeAttributes: unprefixedNodeAttributes(
+			app.AllowedNodeAttributes,
+		),
 		ClientSecret: app.ClientSecret,
 		ID:           app.ID,
 		Name:         app.Name,

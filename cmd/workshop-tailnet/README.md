@@ -6,9 +6,22 @@ JSON in the desktop Secret Service's default collection using `secret-tool`
 (from `libsecret-tools` on Ubuntu). A working desktop session and Secret
 Service are required; the keyring may prompt for unlocking or access.
 
-The secret contains the existing SDK credential format, unchanged:
-`client_id`, `client_secret`, `name`, `redirect_uris`, and `scopes`.
+The secret contains the SDK credential format:
+`client_id`, `client_secret`, `name`, `redirect_uris`, `scopes`,
+and `allowed_node_attributes`.
 The admin API token is never stored.
+
+Setup allowlists node attributes on the OAuth app and records them in the
+credential. Setup prompts for a comma-separated attribute list, defaulting
+to `workshop`; replace the default to provision devices with different
+attributes. Attributes are entered and stored without their `custom:`
+prefix; setup adds the prefix when registering the app. During
+authentication, the helper requests the credential's attributes in the
+token exchange, so every workshop device is stamped with all of them.
+Reference the attributes in tailnet device posture conditions and grants
+to restrict what workshop devices may reach, and to identify them for
+external cleanup tooling. Credentials saved without node attributes are
+rejected; re-run `workshop-tailnet setup` to register a current app.
 
 Lookup attributes are fixed:
 
@@ -26,8 +39,8 @@ After successful secret storage, the helper prints a slot fragment to merge
 into the `system` SDK entry in your workshop definition, plus an explicit
 `workshop connect` command. Replace `WORKSHOP` in that command with your
 workshop name. Secret connections are not automatically granted.
-The existing Tailscale secret plug and runtime credential format do not
-need to change.
+The existing Tailscale secret plug and runtime credential format stay
+compatible; the credential gains the `allowed_node_attributes` field.
 
 Inside the workshop, `tailscale-auth.service` is a system unit running as
 `workshop`. The system manager retrieves the credential from Workshop's

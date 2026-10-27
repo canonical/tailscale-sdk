@@ -6,10 +6,15 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // CreateOAuthAppArgs describes the OAuth app to register.
 type CreateOAuthAppArgs struct {
+	// AllowedNodeAttributes allowlists node attributes that the app may
+	// stamp on provisioned devices.
+	AllowedNodeAttributes []string
+
 	// Name is the app's display name.
 	Name string
 
@@ -22,6 +27,10 @@ type CreateOAuthAppArgs struct {
 
 // OAuthApp describes a registered OAuth app.
 type OAuthApp struct {
+	// AllowedNodeAttributes allowlists node attributes that the app may
+	// stamp on provisioned devices.
+	AllowedNodeAttributes []string
+
 	// ClientSecret is returned when the app is created and omitted later.
 	ClientSecret string
 
@@ -63,11 +72,12 @@ type OAuthAppClient interface {
 }
 
 type storedOAuthApp struct {
-	ClientID     string   `json:"client_id"`
-	ClientSecret string   `json:"client_secret"`
-	Name         string   `json:"name"`
-	RedirectURIs []string `json:"redirect_uris"`
-	Scopes       []string `json:"scopes"`
+	AllowedNodeAttributes []string `json:"allowed_node_attributes"`
+	ClientID              string   `json:"client_id"`
+	ClientSecret          string   `json:"client_secret"`
+	Name                  string   `json:"name"`
+	RedirectURIs          []string `json:"redirect_uris"`
+	Scopes                []string `json:"scopes"`
 }
 
 const (
@@ -90,6 +100,38 @@ func promptRedirectURI(prompt Prompter, out io.Writer) (string, error) {
 		}
 		fmt.Fprintf(out, "Invalid redirect URI: %v\n", err)
 	}
+}
+
+// parseNodeAttributes splits a comma-separated attribute list, trims each
+// entry, removes the automatic node-attribute prefix, and drops empty
+// values.
+func parseNodeAttributes(value string) []string {
+	var attributes []string
+	for entry := range strings.SplitSeq(value, ",") {
+		attribute := strings.TrimPrefix(strings.TrimSpace(entry), nodeAttributePrefix)
+		if attribute != "" {
+			attributes = append(attributes, attribute)
+		}
+	}
+	return attributes
+}
+
+// promptNodeAttributes collects the comma-separated node attribute list,
+// defaulting to the workshop attribute. Entries may carry the automatic
+// node-attribute prefix, which is removed.
+func promptNodeAttributes(prompt Prompter) ([]string, error) {
+	value, err := prompt.Input(
+		"Node attributes (comma-separated)",
+		defaultNodeAttribute,
+	)
+	if err != nil {
+		return nil, err
+	}
+	attributes := parseNodeAttributes(value)
+	if len(attributes) == 0 {
+		attributes = []string{defaultNodeAttribute}
+	}
+	return attributes, nil
 }
 
 func saveOAuthApp(path string, app storedOAuthApp) error {
@@ -140,18 +182,24 @@ The token is used for this setup only and is not saved.
 	if err != nil {
 		return err
 	}
+	attributes, err := promptNodeAttributes(prompt)
+	if err != nil {
+		return err
+	}
 
 	fmt.Fprintf(
 		out,
 		`
 Tailscale will create an OAuth app with:
-  Name:         %s
-  Redirect URI: %s
-  Scope:        %s
+  Name:           %s
+  Redirect URI:   %s
+  Scope:          %s
+  Node attributes: %s
 `,
 		name,
 		redirectURI,
 		provisioningScope,
+		strings.Join(attributes, ", "),
 	)
 
 	confirmed, err := prompt.Confirm("Create this OAuth app?", true)
@@ -163,9 +211,10 @@ Tailscale will create an OAuth app with:
 	}
 
 	args := CreateOAuthAppArgs{
-		Name:         name,
-		RedirectURIs: []string{redirectURI},
-		Scopes:       []string{provisioningScope},
+		AllowedNodeAttributes: attributes,
+		Name:                  name,
+		RedirectURIs:          []string{redirectURI},
+		Scopes:                []string{provisioningScope},
 	}
 	app, err := client.CreateOAuthApp(ctx, token, args)
 	if err != nil {
@@ -175,11 +224,12 @@ Tailscale will create an OAuth app with:
 	// Keep the checked lookup identity and submitted configuration rather
 	// than trusting metadata echoed in the creation response.
 	stored := storedOAuthApp{
-		ClientID:     app.ID,
-		ClientSecret: app.ClientSecret,
-		Name:         args.Name,
-		RedirectURIs: args.RedirectURIs,
-		Scopes:       args.Scopes,
+		AllowedNodeAttributes: args.AllowedNodeAttributes,
+		ClientID:              app.ID,
+		ClientSecret:          app.ClientSecret,
+		Name:                  args.Name,
+		RedirectURIs:          args.RedirectURIs,
+		Scopes:                args.Scopes,
 	}
 	location, err := storeOAuthApp(ctx, store, configPath, stored, out)
 	if err != nil {
@@ -206,6 +256,8 @@ Client secret: %s
 			err,
 		)
 	}
+	// The verification API only documents echo of the fields below; the
+	// allowlisted node attributes are recorded from the checked arguments.
 	matches := verified.ID == app.ID &&
 		verified.Name == name &&
 		sameStrings(verified.RedirectURIs, []string{redirectURI}) &&
