@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/juju/tc"
@@ -165,12 +164,7 @@ func (tailscaleSuite) TestExchangeAuthCode(c *tc.C) {
 			c.Check(
 				r.Form.Get("node_attributes"),
 				tc.Equals,
-				strings.Join(
-					prefixedNodeAttributes(
-						[]string{defaultNodeAttribute, "ci"},
-					),
-					",",
-				),
+				`{"custom:ci":true,"custom:workshop":true}`,
 			)
 			c.Check(r.Form.Get("redirect_uri"), tc.Equals, defaultRedirectURI)
 			_ = json.NewEncoder(w).Encode(oauthTokenResponse{

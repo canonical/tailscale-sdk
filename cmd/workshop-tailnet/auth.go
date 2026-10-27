@@ -278,10 +278,7 @@ func makeAuthHandler(
 			},
 		)
 		if err != nil {
-			result.err = fmt.Errorf(
-				"exchanging authorisation code: %w",
-				err,
-			)
+			result.err = err
 			http.Error(w, "Token exchange failed.", http.StatusBadGateway)
 			sendAuthResult(results, result)
 			return

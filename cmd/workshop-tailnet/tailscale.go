@@ -213,10 +213,15 @@ func (c tailscaleClient) ExchangeAuthCode(
 	form.Set("code", args.Code)
 	form.Set("grant_type", "authorization_code")
 	if len(args.NodeAttributes) > 0 {
-		form.Set(
-			"node_attributes",
-			strings.Join(prefixedNodeAttributes(args.NodeAttributes), ","),
-		)
+		attributes := make(map[string]bool, len(args.NodeAttributes))
+		for _, attribute := range prefixedNodeAttributes(args.NodeAttributes) {
+			attributes[attribute] = true
+		}
+		encoded, err := json.Marshal(attributes)
+		if err != nil {
+			return "", fmt.Errorf("encoding node attributes: %w", err)
+		}
+		form.Set("node_attributes", string(encoded))
 	}
 	form.Set("redirect_uri", args.RedirectURI)
 	req, err := http.NewRequestWithContext(
