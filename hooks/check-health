@@ -1,0 +1,32 @@
+#!/bin/bash
+
+set -euo pipefail
+
+# This hook runs after restore-state, so any provisioned node state
+# saved before a refresh is already restored by now. Starting the
+# authentication service only when the provisioned marker is absent
+# means a refreshed provisioned workshop never repeats the OAuth flow
+# or makes authorisation requests it does not need. Boot-time starts
+# of the enabled service are guarded the same way by the unit's own
+# condition on the marker.
+#
+# The workshop requires every hook-bearing SDK to report its health.
+# Waiting for the user's consent is the designed state of the
+# authentication flow, not a health problem; the authorisation URL is
+# advertised to login shells instead.
+if [ -f /var/lib/tailscale/provisioned ]; then
+  if systemctl is-active --quiet tailscaled.service; then
+    workshopctl set-health okay
+  else
+    workshopctl set-health --code=daemon-not-running error \
+      "tailscaled is not running after state restore"
+  fi
+else
+  systemctl start tailscale-auth.service
+  if systemctl is-active --quiet tailscale-auth.service; then
+    workshopctl set-health okay
+  else
+    workshopctl set-health --code=auth-service-failed error \
+      "the authentication service failed to start"
+  fi
+fi

@@ -1,0 +1,16 @@
+#!/bin/bash
+
+set -euo pipefail
+
+# The Tailscale node state lives in the container filesystem, which a
+# refresh rebuilds, so preserve a provisioned node's state in the SDK
+# state directory. Only a completed provisioning run has the marker
+# that tailscale-up.service touches, so interrupted attempts are left
+# behind, matching what restore-state re-enters. Stopping the daemon
+# first keeps the state files quiescent for the copy; the container is
+# being torn down for the refresh either way.
+if [ -f /var/lib/tailscale/provisioned ]; then
+  systemctl stop tailscaled.service
+  mkdir -p "$SDK_STATE_DIR"
+  cp -a /var/lib/tailscale "$SDK_STATE_DIR/"
+fi

@@ -64,6 +64,21 @@ The authentication service retries until a connected secret is available;
 its URL is printed when a login shell attached to a terminal starts,
 including the shell that "workshop shell" opens.
 
+A workshop refresh rebuilds the container, which discards the Tailscale
+node state in `/var/lib/tailscale`. The `save-state` and `restore-state`
+hooks preserve it in the SDK state directory across the refresh,
+re-entering the pre-refresh state: only the `provisioned` marker that
+`tailscale-up.service` touches on success counts, so a refresh during
+provisioning falls back to the normal authentication flow, while a
+provisioned node's restore brings `tailscaled` up from the saved state
+directly.
+
+The base setup hook installs and enables the authentication service
+but leaves starting it to the `check-health` hook, which runs after
+state restoration and starts the OAuth flow only when no provisioned
+marker exists. A provisioned workshop is therefore never re-authorised
+and makes no authorisation requests when refreshed.
+
 If lookup or storage fails, including when `secret-tool` is missing, the
 helper reports the fallback and saves a private file instead. On Linux,
 this is `$XDG_CONFIG_HOME/workshop-tailnet/oauth-app.json`, or
