@@ -14,4 +14,5 @@ sdks:
         attributes:
           service: "tailscale.com/workshop/oauth-app"
           app: "Canonical-Workshop"
-  - name: try-tailnet
+  - name: tailnet
+    channel: latest/beta

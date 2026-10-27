@@ -98,7 +98,7 @@ sdks:
           app: %s
 
 Connect the secret explicitly (replace WORKSHOP with your workshop name):
-  workshop connect WORKSHOP/tailscale:tailscale-oauth-app \
+  workshop connect WORKSHOP/tailnet:tailscale-oauth-app \
     WORKSHOP/system:tailscale-oauth-app
 `,
 		strconv.Quote(oauthAppSecretService),

@@ -10,7 +10,9 @@ StartLimitIntervalSec=0
 [Service]
 Type=simple
 User=workshop
-LoadCredential=tailscale.tailscale-oauth-app:@SDK_SYSTEMD_SECRET_SOCKET@
+# The secret request identifier is <SDK>.<PLUG>, so it embeds the
+# SDK name and must stay in sync with auth.go's authCredentialFilename.
+LoadCredential=tailnet.tailscale-oauth-app:@SDK_SYSTEMD_SECRET_SOCKET@
 # The daemon's own login state, not a marker file, decides whether the
 # flow runs. The + prefix runs the check as root: the service user has
 # no access to the daemon socket before an operator is configured.

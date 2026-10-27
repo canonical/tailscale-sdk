@@ -54,7 +54,7 @@ type ExchangeAuthCodeArgs struct {
 }
 
 const (
-	authCredentialFilename = "tailscale.tailscale-oauth-app"
+	authCredentialFilename = "tailnet.tailscale-oauth-app"
 	authShutdownTimeout    = 5 * time.Second
 	authURLFilename        = "authorization-url"
 	defaultAuthKeyPath     = "/run/user/1000/tailscale/auth-key"

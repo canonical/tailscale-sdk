@@ -66,7 +66,7 @@ func checkSetupSecretYAML(c *tc.C, output, name string) {
 	c.Check(
 		output,
 		tc.Contains,
-		"workshop connect WORKSHOP/tailscale:tailscale-oauth-app",
+		"workshop connect WORKSHOP/tailnet:tailscale-oauth-app",
 	)
 }
 
