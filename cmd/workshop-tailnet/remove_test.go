@@ -21,7 +21,7 @@ func TestRemoveSuite(t *testing.T) {
 
 func storedOAuthAppForID(id string) storedOAuthApp {
 	return storedOAuthApp{
-		AllowedNodeAttributes: []string{defaultNodeAttribute},
+		AllowedNodeAttributes: provisioningNodeAttributeNames,
 		ClientID:              id,
 		ClientSecret:          "test-client-secret",
 		Name:                  defaultAppName,

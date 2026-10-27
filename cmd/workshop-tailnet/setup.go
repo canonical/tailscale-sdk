@@ -102,38 +102,6 @@ func promptRedirectURI(prompt Prompter, out io.Writer) (string, error) {
 	}
 }
 
-// parseNodeAttributes splits a comma-separated attribute list, trims each
-// entry, removes the automatic node-attribute prefix, and drops empty
-// values.
-func parseNodeAttributes(value string) []string {
-	var attributes []string
-	for entry := range strings.SplitSeq(value, ",") {
-		attribute := strings.TrimPrefix(strings.TrimSpace(entry), nodeAttributePrefix)
-		if attribute != "" {
-			attributes = append(attributes, attribute)
-		}
-	}
-	return attributes
-}
-
-// promptNodeAttributes collects the comma-separated node attribute list,
-// defaulting to the workshop attribute. Entries may carry the automatic
-// node-attribute prefix, which is removed.
-func promptNodeAttributes(prompt Prompter) ([]string, error) {
-	value, err := prompt.Input(
-		"Node attributes (comma-separated)",
-		defaultNodeAttribute,
-	)
-	if err != nil {
-		return nil, err
-	}
-	attributes := parseNodeAttributes(value)
-	if len(attributes) == 0 {
-		attributes = []string{defaultNodeAttribute}
-	}
-	return attributes, nil
-}
-
 func saveOAuthApp(path string, app storedOAuthApp) error {
 	encoded, err := encodeOAuthApp(app)
 	if err != nil {
@@ -182,10 +150,6 @@ The token is used for this setup only and is not saved.
 	if err != nil {
 		return err
 	}
-	attributes, err := promptNodeAttributes(prompt)
-	if err != nil {
-		return err
-	}
 
 	fmt.Fprintf(
 		out,
@@ -199,7 +163,7 @@ Tailscale will create an OAuth app with:
 		name,
 		redirectURI,
 		provisioningScope,
-		strings.Join(attributes, ", "),
+		strings.Join(provisioningNodeAttributeNames, ", "),
 	)
 
 	confirmed, err := prompt.Confirm("Create this OAuth app?", true)
@@ -211,7 +175,7 @@ Tailscale will create an OAuth app with:
 	}
 
 	args := CreateOAuthAppArgs{
-		AllowedNodeAttributes: attributes,
+		AllowedNodeAttributes: provisioningNodeAttributeNames,
 		Name:                  name,
 		RedirectURIs:          []string{redirectURI},
 		Scopes:                []string{provisioningScope},

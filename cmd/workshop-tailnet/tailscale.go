@@ -45,28 +45,55 @@ type tailscaleClient struct {
 }
 
 const (
-	defaultNodeAttribute = "workshop"
-	nodeAttributePrefix  = "custom:"
-	provisioningScope    = "auth_keys:create:once"
-	tailscaleAPIURL      = "https://api.tailscale.com"
+	nodeAttributePrefix = "custom:"
+	provisioningScope   = "auth_keys:create:once"
+	tailscaleAPIURL     = "https://api.tailscale.com"
 )
 
-// prefixedNodeAttributes adds the node-attribute prefix required by the
-// Tailscale API to each attribute.
-func prefixedNodeAttributes(attributes []string) []string {
-	prefixed := make([]string, 0, len(attributes))
-	for _, attribute := range attributes {
-		prefixed = append(prefixed, nodeAttributePrefix+attribute)
+// Node attribute names the SDK allowlists and stamps on provisioned
+// workshop nodes. Values are supplied when the node is provisioned.
+// Names use camelCase to match Tailscale's own attribute style, because
+// the API only allows letters, numbers, and underscores.
+const (
+	nodeAttributeIs        = "canonicalWorkshopIs"
+	nodeAttributeName      = "canonicalWorkshopName"
+	nodeAttributeProjectId = "canonicalWorkshopProjectId"
+)
+
+// provisioningNodeAttributeNames lists every node attribute name the SDK
+// allowlists on the OAuth app.
+var provisioningNodeAttributeNames = []string{
+	nodeAttributeIs,
+	nodeAttributeName,
+	nodeAttributeProjectId,
+}
+
+// prefixedNodeAttributeNames adds the node-attribute prefix required by
+// the Tailscale API to each attribute name.
+func prefixedNodeAttributeNames(names []string) []string {
+	prefixed := make([]string, 0, len(names))
+	for _, name := range names {
+		prefixed = append(prefixed, nodeAttributePrefix+name)
 	}
 	return prefixed
 }
 
-// unprefixedNodeAttributes removes the node-attribute prefix from each
-// attribute so callers see the plain names.
-func unprefixedNodeAttributes(attributes []string) []string {
-	plain := make([]string, 0, len(attributes))
-	for _, attribute := range attributes {
-		plain = append(plain, strings.TrimPrefix(attribute, nodeAttributePrefix))
+// prefixedNodeAttributes adds the node-attribute prefix required by the
+// Tailscale API to each attribute name, keeping the attribute values.
+func prefixedNodeAttributes(attributes map[string]any) map[string]any {
+	prefixed := make(map[string]any, len(attributes))
+	for name, value := range attributes {
+		prefixed[nodeAttributePrefix+name] = value
+	}
+	return prefixed
+}
+
+// unprefixedNodeAttributeNames removes the node-attribute prefix from
+// each attribute name so callers see the plain names.
+func unprefixedNodeAttributeNames(names []string) []string {
+	plain := make([]string, 0, len(names))
+	for _, name := range names {
+		plain = append(plain, strings.TrimPrefix(name, nodeAttributePrefix))
 	}
 	return plain
 }
@@ -78,7 +105,7 @@ func (c tailscaleClient) CreateOAuthApp(
 	args CreateOAuthAppArgs,
 ) (OAuthApp, error) {
 	request := createOAuthAppRequest{
-		AllowedNodeAttributes: prefixedNodeAttributes(
+		AllowedNodeAttributes: prefixedNodeAttributeNames(
 			args.AllowedNodeAttributes,
 		),
 		Name:         args.Name,
@@ -213,11 +240,9 @@ func (c tailscaleClient) ExchangeAuthCode(
 	form.Set("code", args.Code)
 	form.Set("grant_type", "authorization_code")
 	if len(args.NodeAttributes) > 0 {
-		attributes := make(map[string]bool, len(args.NodeAttributes))
-		for _, attribute := range prefixedNodeAttributes(args.NodeAttributes) {
-			attributes[attribute] = true
-		}
-		encoded, err := json.Marshal(attributes)
+		encoded, err := json.Marshal(
+			prefixedNodeAttributes(args.NodeAttributes),
+		)
 		if err != nil {
 			return "", fmt.Errorf("encoding node attributes: %w", err)
 		}
@@ -324,7 +349,7 @@ func sameStrings(left, right []string) bool {
 // toOAuthApp maps the wire response to the interface result.
 func (app oauthApp) toOAuthApp() OAuthApp {
 	return OAuthApp{
-		AllowedNodeAttributes: unprefixedNodeAttributes(
+		AllowedNodeAttributes: unprefixedNodeAttributeNames(
 			app.AllowedNodeAttributes,
 		),
 		ClientSecret: app.ClientSecret,

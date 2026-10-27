@@ -11,17 +11,31 @@ The secret contains the SDK credential format:
 and `allowed_node_attributes`.
 The admin API token is never stored.
 
-Setup allowlists node attributes on the OAuth app and records them in the
-credential. Setup prompts for a comma-separated attribute list, defaulting
-to `workshop`; replace the default to provision devices with different
-attributes. Attributes are entered and stored without their `custom:`
-prefix; setup adds the prefix when registering the app. During
-authentication, the helper requests the credential's attributes in the
-token exchange, so every workshop device is stamped with all of them.
-Reference the attributes in tailnet device posture conditions and grants
-to restrict what workshop devices may reach, and to identify them for
-external cleanup tooling. Credentials saved without node attributes are
-rejected; re-run `workshop-tailnet setup` to register a current app.
+Setup allowlists a fixed set of node attributes on the OAuth app, in a
+Kubernetes-style namespace, and records them in the credential. The
+confirmation summary shows the exact set. Attribute names are stored
+without their `custom:` prefix; setup adds the prefix when registering
+the app.
+
+During authentication, the helper supplies each attribute's value in the
+token exchange, so every workshop device is stamped with:
+
+- `custom:canonicalWorkshopIs`: `true`
+- `custom:canonicalWorkshopName`: the workshop hostname, with dashes
+  replaced by underscores
+- `custom:canonicalWorkshopProjectId`: the project ID from
+  `/project/.workshop.lock`, omitted outside a workshop
+
+The Tailscale API only allows letters, numbers, and underscores in
+attribute names, and letters, numbers, underscores, and periods in
+string values, which is why the namespace and the name value use
+underscores.
+
+Reference the attributes in tailnet device posture conditions and grants,
+including by value, to restrict what workshop devices may reach and to
+identify them for external cleanup tooling. Credentials whose attribute
+set differs are rejected; re-run `workshop-tailnet setup` to register a
+current app.
 
 Lookup attributes are fixed:
 

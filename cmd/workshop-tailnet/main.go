@@ -107,11 +107,16 @@ func run(
 		if err != nil {
 			return err
 		}
+		attributes, err := workshopNodeAttributes(projectLockPath)
+		if err != nil {
+			return err
+		}
 		return authenticate(
 			ctx,
 			provisioner,
 			configPath,
 			defaultAuthKeyPath,
+			attributes,
 			stdout,
 		)
 	case "list-oauth-apps":

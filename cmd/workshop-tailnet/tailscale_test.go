@@ -21,7 +21,7 @@ func TestTailscaleSuite(t *testing.T) {
 func (tailscaleSuite) TestCreateOAuthApp(c *tc.C) {
 	const token = "test-admin-token"
 	args := CreateOAuthAppArgs{
-		AllowedNodeAttributes: []string{defaultNodeAttribute, "ci"},
+		AllowedNodeAttributes: provisioningNodeAttributeNames,
 		Name:                  "custom-workshop",
 		RedirectURIs: []string{
 			"http://127.0.0.1:8765/callback",
@@ -45,7 +45,7 @@ func (tailscaleSuite) TestCreateOAuthApp(c *tc.C) {
 			err := json.NewDecoder(r.Body).Decode(&request)
 			c.Check(err, tc.IsNil)
 			c.Check(request, tc.DeepEquals, createOAuthAppRequest{
-				AllowedNodeAttributes: prefixedNodeAttributes(
+				AllowedNodeAttributes: prefixedNodeAttributeNames(
 					args.AllowedNodeAttributes,
 				),
 				Name:         args.Name,
@@ -54,7 +54,7 @@ func (tailscaleSuite) TestCreateOAuthApp(c *tc.C) {
 			})
 			w.WriteHeader(http.StatusCreated)
 			_ = json.NewEncoder(w).Encode(oauthApp{
-				AllowedNodeAttributes: prefixedNodeAttributes(
+				AllowedNodeAttributes: prefixedNodeAttributeNames(
 					args.AllowedNodeAttributes,
 				),
 				ClientSecret: "test-secret",
@@ -164,7 +164,9 @@ func (tailscaleSuite) TestExchangeAuthCode(c *tc.C) {
 			c.Check(
 				r.Form.Get("node_attributes"),
 				tc.Equals,
-				`{"custom:ci":true,"custom:workshop":true}`,
+				`{"custom:canonicalWorkshopIs":true,`+
+					`"custom:canonicalWorkshopName":"test_workshop",`+
+					`"custom:canonicalWorkshopProjectId":"test_project"}`,
 			)
 			c.Check(r.Form.Get("redirect_uri"), tc.Equals, defaultRedirectURI)
 			_ = json.NewEncoder(w).Encode(oauthTokenResponse{
@@ -183,11 +185,15 @@ func (tailscaleSuite) TestExchangeAuthCode(c *tc.C) {
 	token, err := client.ExchangeAuthCode(
 		c.Context(),
 		ExchangeAuthCodeArgs{
-			ClientID:       "app-test",
-			ClientSecret:   "test-secret",
-			Code:           "test-code",
-			NodeAttributes: []string{defaultNodeAttribute, "ci"},
-			RedirectURI:    defaultRedirectURI,
+			ClientID:     "app-test",
+			ClientSecret: "test-secret",
+			Code:         "test-code",
+			NodeAttributes: map[string]any{
+				nodeAttributeIs:        true,
+				nodeAttributeName:      "test_workshop",
+				nodeAttributeProjectId: "test_project",
+			},
+			RedirectURI: defaultRedirectURI,
 		},
 	)
 	c.Assert(err, tc.IsNil)
@@ -206,8 +212,8 @@ func (tailscaleSuite) TestGetOAuthApp(c *tc.C) {
 			c.Check(username, tc.Equals, token)
 			c.Check(password, tc.Equals, "")
 			_ = json.NewEncoder(w).Encode(oauthApp{
-				AllowedNodeAttributes: prefixedNodeAttributes(
-					[]string{defaultNodeAttribute},
+				AllowedNodeAttributes: prefixedNodeAttributeNames(
+					provisioningNodeAttributeNames,
 				),
 				ID:           "app-test",
 				Name:         defaultAppName,
@@ -242,8 +248,8 @@ func (tailscaleSuite) TestListOAuthApps(c *tc.C) {
 			response := listOAuthAppsResponse{
 				OAuthApps: []oauthApp{
 					{
-						AllowedNodeAttributes: prefixedNodeAttributes(
-							[]string{defaultNodeAttribute},
+						AllowedNodeAttributes: prefixedNodeAttributeNames(
+							provisioningNodeAttributeNames,
 						),
 						ID:           "app-test",
 						Name:         defaultAppName,

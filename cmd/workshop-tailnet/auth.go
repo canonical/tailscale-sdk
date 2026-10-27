@@ -10,11 +10,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -43,9 +45,9 @@ type ExchangeAuthCodeArgs struct {
 	// Code is the authorisation code returned by the OAuth callback.
 	Code string
 
-	// NodeAttributes lists the node attributes stamped on the device
-	// registered with the exchanged key.
-	NodeAttributes []string
+	// NodeAttributes maps node attribute names to the values stamped on
+	// the device registered with the exchanged key.
+	NodeAttributes map[string]any
 
 	// RedirectURI is the callback URI used to request the code.
 	RedirectURI string
@@ -57,6 +59,7 @@ const (
 	authURLFilename        = "authorization-url"
 	defaultAuthKeyPath     = "/run/user/1000/tailscale/auth-key"
 	oauthAuthorizeURL      = "https://login.tailscale.com/a/oauth_authorize"
+	projectLockPath        = "/project/.workshop.lock"
 )
 
 func authenticate(
@@ -64,6 +67,7 @@ func authenticate(
 	provisioner DeviceProvisioner,
 	configPath string,
 	authKeyPath string,
+	attributes map[string]any,
 	out io.Writer,
 ) error {
 	app, err := loadOAuthApp(configPath)
@@ -114,6 +118,7 @@ func authenticate(
 		app,
 		state,
 		parsedRedirect.Path,
+		attributes,
 		callbacks,
 	)
 	server := &http.Server{Handler: handler}
@@ -198,14 +203,43 @@ func loadOAuthApp(path string) (storedOAuthApp, error) {
 			provisioningScope,
 		)
 	}
-	if len(app.AllowedNodeAttributes) == 0 {
+	if !sameStrings(app.AllowedNodeAttributes, provisioningNodeAttributeNames) {
 		return app, fmt.Errorf(
-			"OAuth app credential must include at least one node " +
-				"attribute; re-run workshop-tailnet setup to register a " +
-				"current app",
+			"OAuth app credential must allowlist %s; "+
+				"re-run workshop-tailnet setup to register a current app",
+			strings.Join(provisioningNodeAttributeNames, ", "),
 		)
 	}
 	return app, nil
+}
+
+// workshopNodeAttributes collects the node attribute values stamped on the
+// provisioned device. The workshop name comes from the hostname, with
+// dashes replaced by underscores because the Tailscale API only allows
+// letters, numbers, underscores, and periods in string attribute values.
+// The project ID comes from the project lock file, and is omitted when the
+// lock file is absent, so authentication still works outside a workshop.
+func workshopNodeAttributes(projectLockPath string) (map[string]any, error) {
+	name, err := os.Hostname()
+	if err != nil {
+		return nil, fmt.Errorf("determining workshop name: %w", err)
+	}
+	attributes := map[string]any{
+		nodeAttributeIs:   true,
+		nodeAttributeName: strings.ReplaceAll(name, "-", "_"),
+	}
+	encoded, err := os.ReadFile(projectLockPath)
+	if errors.Is(err, fs.ErrNotExist) {
+		return attributes, nil
+	} else if err != nil {
+		return nil, fmt.Errorf("reading project lock file: %w", err)
+	}
+	projectId := strings.TrimSpace(string(encoded))
+	if projectId == "" {
+		return nil, fmt.Errorf("project lock file %s is empty", projectLockPath)
+	}
+	attributes[nodeAttributeProjectId] = projectId
+	return attributes, nil
 }
 
 // readStoredOAuthApp decodes a stored credential without validating that
@@ -230,6 +264,7 @@ func makeAuthHandler(
 	app storedOAuthApp,
 	state string,
 	callbackPath string,
+	attributes map[string]any,
 	results chan<- authCallbackResult,
 ) http.Handler {
 	mux := http.NewServeMux()
@@ -273,7 +308,7 @@ func makeAuthHandler(
 				ClientID:       app.ClientID,
 				ClientSecret:   app.ClientSecret,
 				Code:           code,
-				NodeAttributes: app.AllowedNodeAttributes,
+				NodeAttributes: attributes,
 				RedirectURI:    app.RedirectURIs[0],
 			},
 		)

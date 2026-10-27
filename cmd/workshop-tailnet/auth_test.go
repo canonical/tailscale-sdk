@@ -22,12 +22,22 @@ type authSuite struct{}
 
 func testOAuthApp(redirectURI string) storedOAuthApp {
 	return storedOAuthApp{
-		AllowedNodeAttributes: []string{defaultNodeAttribute},
+		AllowedNodeAttributes: provisioningNodeAttributeNames,
 		ClientID:              "app-test",
 		ClientSecret:          "test-client-secret",
 		Name:                  defaultAppName,
 		RedirectURIs:          []string{redirectURI},
 		Scopes:                []string{provisioningScope},
+	}
+}
+
+// testNodeAttributes provides deterministic node attribute values for
+// authentication tests.
+func testNodeAttributes() map[string]any {
+	return map[string]any{
+		nodeAttributeIs:        true,
+		nodeAttributeName:      "test-workshop",
+		nodeAttributeProjectId: "test-project",
 	}
 }
 
@@ -57,6 +67,7 @@ func (authSuite) TestAuthenticateRejectsEmptyCredential(c *tc.C) {
 		nil,
 		configPath,
 		filepath.Join(c.MkDir(), "auth-key"),
+		testNodeAttributes(),
 		&output,
 	)
 	c.Assert(err, tc.NotNil)
@@ -83,10 +94,11 @@ func (authSuite) TestAuthenticateRejectsLegacyCredential(c *tc.C) {
 		nil,
 		configPath,
 		filepath.Join(c.MkDir(), "auth-key"),
+		testNodeAttributes(),
 		&output,
 	)
 	c.Assert(err, tc.NotNil)
-	c.Check(err.Error(), tc.Contains, "at least one node attribute")
+	c.Check(err.Error(), tc.Contains, nodeAttributeIs)
 	c.Check(err.Error(), tc.Contains, "re-run workshop-tailnet setup")
 }
 
@@ -111,6 +123,7 @@ func (authSuite) TestAuthenticateRejectsInvalidState(c *tc.C) {
 			provisioner,
 			configPath,
 			authKeyPath,
+			testNodeAttributes(),
 			writer,
 		)
 		_ = writer.Close()
@@ -164,6 +177,7 @@ func (authSuite) TestAuthenticateSavesOneTimeToken(c *tc.C) {
 			provisioner,
 			configPath,
 			authKeyPath,
+			testNodeAttributes(),
 			writer,
 		)
 		_ = writer.Close()
@@ -204,7 +218,7 @@ func (authSuite) TestAuthenticateSavesOneTimeToken(c *tc.C) {
 		ClientID:       "app-test",
 		ClientSecret:   "test-client-secret",
 		Code:           "test-code",
-		NodeAttributes: []string{defaultNodeAttribute},
+		NodeAttributes: testNodeAttributes(),
 		RedirectURI:    app.RedirectURIs[0],
 	})
 	encoded, err := os.ReadFile(authKeyPath)
@@ -215,4 +229,37 @@ func (authSuite) TestAuthenticateSavesOneTimeToken(c *tc.C) {
 	c.Check(info.Mode().Perm(), tc.Equals, os.FileMode(0o600))
 	_, statErr := os.Stat(authURLPath)
 	c.Check(os.IsNotExist(statErr), tc.IsTrue)
+}
+
+// TestWorkshopNodeAttributes checks attribute collection from the
+// workshop name and the project lock file.
+func (authSuite) TestWorkshopNodeAttributes(c *tc.C) {
+	lockPath := filepath.Join(c.MkDir(), ".workshop.lock")
+	err := os.WriteFile(lockPath, []byte("12345\n"), 0o600)
+	c.Assert(err, tc.IsNil)
+
+	attributes, err := workshopNodeAttributes(lockPath)
+	c.Assert(err, tc.IsNil)
+	hostname, err := os.Hostname()
+	c.Assert(err, tc.IsNil)
+	c.Check(attributes[nodeAttributeIs], tc.Equals, true)
+	c.Check(
+		attributes[nodeAttributeName],
+		tc.Equals,
+		strings.ReplaceAll(hostname, "-", "_"),
+	)
+	c.Check(attributes[nodeAttributeProjectId], tc.Equals, "12345")
+
+	attributes, err = workshopNodeAttributes(
+		filepath.Join(c.MkDir(), "absent.lock"),
+	)
+	c.Assert(err, tc.IsNil)
+	_, ok := attributes[nodeAttributeProjectId]
+	c.Check(ok, tc.IsFalse)
+
+	err = os.WriteFile(lockPath, nil, 0o600)
+	c.Assert(err, tc.IsNil)
+	_, err = workshopNodeAttributes(lockPath)
+	c.Assert(err, tc.NotNil)
+	c.Check(err.Error(), tc.Contains, "is empty")
 }
