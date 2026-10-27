@@ -3,8 +3,9 @@ adopt-info: tailscale
 title: Tailscale SDK
 summary: Tailscale networking for Workshop development environments.
 description: |
-  This SDK provides the Tailscale CLI and daemon for user-attributed
-  connectivity between workshops and a tailnet.
+  This SDK connects a workshop to a tailnet. Everything on the tailnet,
+  including SSH into hosts, internal HTTP and database services, and
+  MagicDNS names, is reachable from inside the workshop container.
 license: BSD-3-Clause
 build-base: ubuntu@26.04
 platforms:
