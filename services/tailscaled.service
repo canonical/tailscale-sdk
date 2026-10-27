@@ -12,6 +12,7 @@ ExecStart=/var/lib/workshop/sdk/tailscale/bin/tailscaled \
     --statedir=/var/lib/tailscale \
     --socket=/run/tailscale/tailscaled.sock \
     --tun=tailscale0
+ExecStop=/var/lib/workshop/sdk/tailscale/tailscale-stop
 Restart=on-failure
 RestartSec=2
 

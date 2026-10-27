@@ -7,8 +7,9 @@ set -euo pipefail
 # state directory. Only a completed provisioning run has the marker
 # that tailscale-up.service touches, so interrupted attempts are left
 # behind, matching what restore-state re-enters. Stopping the daemon
-# first keeps the state files quiescent for the copy; the container is
-# being torn down for the refresh either way.
+# first keeps the state files quiescent for the copy, and keeps the
+# refresh out of tailscale-stop's shutdown-time deregistration: the
+# daemon is gone long before the teardown shutdown runs.
 if [ -f /var/lib/tailscale/provisioned ]; then
   systemctl stop tailscaled.service
   mkdir -p "$SDK_STATE_DIR"

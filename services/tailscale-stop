@@ -1,0 +1,26 @@
+#!/bin/bash
+
+set -euo pipefail
+
+# tailscaled.service runs this from ExecStop before stopping the
+# daemon, while its socket is still alive: only then can "tailscale
+# logout" deregister the node from the tailnet. The stop is part of a
+# container shutdown exactly when a start job for shutdown.target is
+# pending; individual stops must keep the node. save-state relies on
+# that: it stops the daemon before the refresh teardown, so a refresh
+# never deregisters, and neither do manual stops or crashes.
+if [ ! -f /var/lib/tailscale/provisioned ]; then
+  exit 0
+fi
+jobs=$(/usr/bin/systemctl list-jobs --no-legend shutdown.target)
+if [ -z "$jobs" ]; then
+  exit 0
+fi
+# Workshop stop and remove are indistinguishable in-container, so both
+# deregister: a later start re-runs the authentication flow. Remove the
+# provisioning marker so that flow is not blocked by a registration
+# that no longer exists. If the logout fails, keep both: the
+# registration may still be valid server-side.
+/var/lib/workshop/sdk/tailscale/bin/tailscale \
+  --socket=/run/tailscale/tailscaled.sock logout
+/usr/bin/rm -f /var/lib/tailscale/provisioned

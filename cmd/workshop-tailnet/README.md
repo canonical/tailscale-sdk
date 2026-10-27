@@ -79,6 +79,15 @@ state restoration and starts the OAuth flow only when no provisioned
 marker exists. A provisioned workshop is therefore never re-authorised
 and makes no authorisation requests when refreshed.
 
+The `tailscaled` unit deregisters the node when the container shuts
+down: workshop stop and workshop remove are indistinguishable inside
+the container, so both are treated as removal, and starting a stopped
+workshop re-runs the authentication flow and asks for consent again.
+Refreshes are unaffected, because `save-state` stops the daemon before
+the teardown shutdown; manual daemon stops and crashes keep the node
+too. Containers killed without a graceful shutdown cannot deregister;
+identify their nodes by the `canonicalWorkshop*` attributes.
+
 If lookup or storage fails, including when `secret-tool` is missing, the
 helper reports the fallback and saves a private file instead. On Linux,
 this is `$XDG_CONFIG_HOME/workshop-tailnet/oauth-app.json`, or
