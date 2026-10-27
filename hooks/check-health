@@ -20,7 +20,7 @@ if ! systemctl is-active --quiet tailscaled.service; then
   exit 0
 fi
 login=0
-/var/lib/workshop/sdk/tailscale/tailscale-needs-login || login=$?
+/var/lib/workshop/sdk/tailnet/tailscale-needs-login || login=$?
 case "$login" in
   1)
     workshopctl set-health okay

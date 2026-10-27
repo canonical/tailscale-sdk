@@ -11,12 +11,12 @@ StartLimitIntervalSec=0
 Type=simple
 StateDirectory=tailscale
 RuntimeDirectory=tailscale
-ExecStart=/var/lib/workshop/sdk/tailscale/bin/tailscaled \
+ExecStart=/var/lib/workshop/sdk/tailnet/bin/tailscaled \
     --state=/var/lib/tailscale/tailscaled.state \
     --statedir=/var/lib/tailscale \
     --socket=/run/tailscale/tailscaled.sock \
     --tun=tailscale0
-ExecStop=/var/lib/workshop/sdk/tailscale/tailscale-stop
+ExecStop=/var/lib/workshop/sdk/tailnet/tailscale-stop
 Restart=on-failure
 RestartSec=2
 

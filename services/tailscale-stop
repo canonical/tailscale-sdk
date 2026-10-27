@@ -12,7 +12,7 @@ set -euo pipefail
 # daemon's own login state decides whether there is anything to
 # deregister at all; an undetermined state keeps the node.
 login=0
-/var/lib/workshop/sdk/tailscale/tailscale-needs-login || login=$?
+/var/lib/workshop/sdk/tailnet/tailscale-needs-login || login=$?
 if [ "$login" -ne 1 ]; then
   exit 0
 fi
@@ -24,5 +24,5 @@ fi
 # so both deregister: a later start sees the logged-out state left by
 # the logout and re-runs the authentication flow. If the logout fails,
 # keep the registration: it may still be valid server-side.
-/var/lib/workshop/sdk/tailscale/bin/tailscale \
+/var/lib/workshop/sdk/tailnet/bin/tailscale \
   --socket=/run/tailscale/tailscaled.sock logout

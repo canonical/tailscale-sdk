@@ -1,4 +1,4 @@
 name: test-tailscale
 base: ${BASE}
 sdks:
-  - name: try-tailscale
+  - name: try-tailnet

@@ -7,7 +7,7 @@ StartLimitIntervalSec=0
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/var/lib/workshop/sdk/tailscale/bin/tailscale \
+ExecStart=/var/lib/workshop/sdk/tailnet/bin/tailscale \
     --socket=/run/tailscale/tailscaled.sock \
     up \
     --auth-key=file:/run/user/1000/tailscale/auth-key \

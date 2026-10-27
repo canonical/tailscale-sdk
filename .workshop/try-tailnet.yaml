@@ -1,4 +1,4 @@
-name: try-tailscale
+name: try-tailnet
 base: ubuntu@24.04
 
 sdks:
@@ -14,4 +14,4 @@ sdks:
         attributes:
           service: "tailscale.com/workshop/oauth-app"
           app: "Canonical-Workshop"
-  - name: try-tailscale
+  - name: try-tailnet

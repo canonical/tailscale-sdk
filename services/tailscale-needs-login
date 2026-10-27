@@ -25,7 +25,7 @@ set -euo pipefail
 consecutive=0
 tries=15
 while [ "$tries" -gt 0 ]; do
-  json=$(/var/lib/workshop/sdk/tailscale/bin/tailscale \
+  json=$(/var/lib/workshop/sdk/tailnet/bin/tailscale \
     --socket=/run/tailscale/tailscaled.sock \
     status --json 2>/dev/null || true)
   state=$(printf '%s' "$json" \

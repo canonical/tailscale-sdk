@@ -15,7 +15,7 @@ LoadCredential=tailscale.tailscale-oauth-app:@SDK_SYSTEMD_SECRET_SOCKET@
 # flow runs. The + prefix runs the check as root: the service user has
 # no access to the daemon socket before an operator is configured.
 # Any exit from 1 through 254 cleanly skips this unit.
-ExecCondition=+/var/lib/workshop/sdk/tailscale/tailscale-needs-login
-ExecStart=/var/lib/workshop/sdk/tailscale/bin/workshop-tailnet authenticate
+ExecCondition=+/var/lib/workshop/sdk/tailnet/tailscale-needs-login
+ExecStart=/var/lib/workshop/sdk/tailnet/bin/workshop-tailnet authenticate
 Restart=on-failure
 RestartSec=2
